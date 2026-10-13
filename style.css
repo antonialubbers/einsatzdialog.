@@ -42,3 +42,20 @@ button,input,textarea,select{font-size:max(16px,1em)}
 .module-sources{margin-top:15px;font-size:.85rem;border-top:1px solid var(--line);padding-top:13px}.module-sources summary{cursor:pointer;font-weight:700;color:#425866}.module-sources .sources{margin-top:15px}
 @media (max-width:960px){.learning-shell{grid-template-columns:1fr}.learning-menu{display:flex;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin;gap:8px;align-items:stretch}.learning-menu-title{display:none}.lesson-menu-item{flex:0 0 auto;width:190px}.lesson-menu-arrow{display:none}}
 @media(max-width:700px){.learning-detail{padding:17px}.lesson-menu-item{width:167px;font-size:.79rem}.module-counter{font-size:1.1rem}.flip-card{min-height:0}.lesson-nav{gap:6px}.lesson-nav button{padding:10px 12px}.lesson-dots button{width:9px;height:9px}}
+
+/* v0.6: Direkt antippbare Themen und Fallkarten statt problematischer iPad-Dropdowns */
+.topic-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.topic-option{appearance:none;width:100%;min-height:112px;text-align:left;display:flex;align-items:flex-start;gap:10px;padding:13px 12px;border:1px solid #d7ddda;background:#fff;border-radius:10px;color:var(--ink);line-height:1.35;transition:background .12s,border-color .12s}
+.topic-option-num{font-size:.73rem;font-weight:800;color:var(--accent);padding:4px 5px;border-radius:5px;background:#eff3ef;flex:none}
+.topic-option-title{font-size:.87rem;font-weight:750;flex:1;overflow-wrap:anywhere}
+.topic-option-title small{display:block;font-size:.75rem;color:var(--muted);font-weight:450;margin-top:9px}
+.topic-option-symbol{font-weight:800;color:#698278}
+.topic-option.selected,.case-option.selected{border-color:var(--accent);background:#eaf2ed;box-shadow:inset 0 0 0 1px var(--accent)}
+.topic-option:hover,.case-option:hover{border-color:#6f9b88}
+.topic-option:focus-visible,.case-option:focus-visible{outline:3px solid #dfb398;outline-offset:3px}
+.case-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.case-option{appearance:none;width:100%;min-height:88px;padding:13px 15px;border:1px solid #d7ddda;background:#fff;text-align:left;border-radius:10px;color:var(--ink)}
+.case-option-title{display:block;font-size:.92rem;font-weight:700;line-height:1.4}
+.case-option small{display:block;font-size:.76rem;color:var(--muted);margin-top:6px}
+@media(max-width:1030px){.topic-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:610px){.topic-options,.case-options{grid-template-columns:1fr}.topic-option{min-height:80px}.case-option{min-height:70px}}

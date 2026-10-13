@@ -1,6 +1,6 @@
 /* EINSATZDIALOG PWA: cache only public app files, never chats or Ollama API */
-const CACHE='einsatzdialog-shell-v05-20261013';
-const SHELL=['./','./index.html','./style.css','./scenarios.js','./extend.js','./app.js','./pwa.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-180.png','./icon.svg'];
+const CACHE='einsatzdialog-shell-v06-20261013';
+const SHELL=['./','./index.html','./style.css?v=06','./scenarios.js?v=06','./extend.js?v=06','./app.js?v=06','./pwa.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-180.png','./icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('einsatzdialog-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]));});
 self.addEventListener('fetch',event=>{
