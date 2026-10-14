@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#142438">
+  <title>EINSATZDIALOG – Verwaltung</title>
+  <link rel="stylesheet" href="./admin.css?v=09">
+  <script src="./admin.js?v=09" defer></script>
+</head>
+<body>
+  <header class="topbar"><div class="brand"><div class="brandmark">E</div><div><strong>EINSATZDIALOG</strong><small>Redaktionsbereich · Version 0.9</small></div></div><a href="./index.html" class="back">↗ Zur Lernplattform</a></header>
+  <main>
+    <section id="setup" class="center-pane" hidden>
+      <div class="eyebrow">EINMALIGE EINRICHTUNG</div><h1>Datenbank verbinden.</h1>
+      <p class="muted">Trage die beiden Angaben aus deinem Supabase-Dashboard ein. Beide sind für Browser-Anwendungen vorgesehen. Geheimschlüssel gehören hier niemals hinein.</p>
+      <form id="setupForm" class="stack">
+        <label>Supabase Project URL<input name="url" type="url" placeholder="https://dein-projekt.supabase.co" autocomplete="url" required></label>
+        <label>Publishable Key<input name="key" type="text" placeholder="sb_publishable_..." autocomplete="off" required spellcheck="false"></label>
+        <p class="note">Nur <code>sb_publishable_…</code> verwenden, niemals einen <code>sb_secret_…</code>- oder <code>service_role</code>-Schlüssel. Die Konfiguration bleibt auf diesem Gerät gespeichert.</p>
+        <button class="primary" type="submit">Verbindung vorbereiten →</button>
+      </form>
+    </section>
+    <section id="login" class="center-pane" hidden>
+      <div class="eyebrow">GESCHÜTZTER BEREICH</div><h1>Willkommen zurück.</h1>
+      <p class="muted">Melde dich mit dem Benutzerkonto an, das du in Supabase unter Authentication → Users erstellt hast.</p>
+      <form id="loginForm" class="stack">
+        <label>E-Mail<input name="email" type="email" autocomplete="username" required></label>
+        <label>Passwort<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="primary" type="submit">Anmelden →</button>
+      </form>
+      <button id="resetConfig" class="text-button">Verbindungsdaten ändern</button>
+    </section>
+    <section id="dashboard" class="dashboard" hidden>
+      <div class="page-heading"><div><div class="eyebrow">DEIN REDAKTIONSSYSTEM</div><h1>Fachwissen verwalten.</h1><p class="muted">Lernmodule erstellen, Lernkarten bearbeiten und Inhalte veröffentlichen.</p></div><div class="right-tools"><span id="signedInAs"></span><button id="logout" class="ghost">Abmelden</button></div></div>
+      <div class="editor-grid">
+        <aside class="sidebar"><div class="sidebar-heading"><h2>Lernmodule</h2><button id="newModule" class="mini primary">+ Neu</button></div><div id="moduleList" class="module-list"></div><p class="hint">↑ ↓ verändern die Reihenfolge. Änderungen werden direkt in Supabase gespeichert.</p></aside>
+        <div class="workspace">
+          <section id="emptyState" class="empty-state"><div class="big-icon">▤</div><h2>Modul auswählen</h2><p>Wähle ein Modul links aus oder erstelle ein neues.</p></section>
+          <section id="moduleWorkspace" hidden>
+            <div class="section-head"><div class="eyebrow">MODUL BEARBEITEN</div><div class="actions"><button id="deleteModule" class="danger ghost">Modul löschen</button><button id="saveModule" class="primary">Modul speichern</button></div></div>
+            <div class="form-grid">
+              <label>Modultitel<input id="moduleTitle" maxlength="160"></label>
+              <label>Status<select id="moduleStatus"><option value="draft">Entwurf</option><option value="published">Veröffentlicht</option><option value="archived">Archiviert</option></select></label>
+              <label class="full">Kurzbeschreibung<textarea id="moduleDesc" rows="2"></textarea></label>
+              <fieldset class="full"><legend>Für welche Organisationen?</legend><div id="groupChoices" class="group-choices"><label><input type="checkbox" value="Feuerwehr"> Feuerwehr</label><label><input type="checkbox" value="Rettungsdienst"> Rettungsdienst</label><label><input type="checkbox" value="THW"> THW</label><label><input type="checkbox" value="Polizei"> Polizei</label></div></fieldset>
+            </div>
+            <div class="cards-heading"><div><div class="eyebrow">INHALTE</div><h2>Lernkarten</h2></div><button id="newCard" class="secondary">+ Neue Karte</button></div>
+            <div id="cardList" class="cards-list"></div>
+            <section id="cardEditor" class="card-editor" hidden>
+              <div class="section-head"><div><div class="eyebrow">LERNKARTE</div><h3 id="cardEditorHeading">Karte bearbeiten</h3></div><div class="actions"><button id="deleteCard" class="ghost danger">Löschen</button><button id="saveCard" class="primary">Karte speichern</button></div></div>
+              <div class="form-grid"><label>Kartentitel<input id="cardTitle" maxlength="180"></label><label>Status<select id="cardStatus"><option value="draft">Entwurf</option><option value="published">Veröffentlicht</option><option value="archived">Archiviert</option></select></label><label class="full">Fachinhalt<textarea id="cardContent" rows="7" placeholder="Hier steht dein fachlicher Lerntext …"></textarea></label><label class="full">Praxisbeispiel<textarea id="cardExample" rows="3" placeholder="Zum Beispiel eine kurze Situation aus einem fiktiven Einsatz …"></textarea></label><label>Fachquelle / Literatur<input id="cardSource" placeholder="z. B. WHO – Psychological First Aid"></label><label>Quellen-Link<input id="cardUrl" type="url" placeholder="https://..."></label></div>
+              <div class="preview-heading">Vorschau der Lernkarte</div><article id="cardPreview" class="card-preview"></article>
+              <p class="note">Veröffentlichte Karten sind später erst dann in der eigentlichen Lernplattform sichtbar, wenn wir deren Wissensbereich ebenfalls an Supabase angeschlossen haben.</p>
+            </section>
+          </section>
+        </div>
+      </div>
+    </section>
+    <div id="flash" role="status" aria-live="polite" hidden></div>
+  </main>
+</body></html>
