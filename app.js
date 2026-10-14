@@ -36,7 +36,7 @@ const chooseScenario=()=>{
 function page(template,content){
  const progress=['setup','learn','play','review']; const active=progress.indexOf(state.screen);
  root.innerHTML=`<header class="topbar"><a href="#" data-action="home" class="brand"><span class="logo"><span>⌁</span></span> EINSATZDIALOG</a><div class="top-right"><span id="connection-status" class="connection-status" aria-live="polite"></span><span class="top-pill">FIKTIVE ÜBUNGSFÄLLE</span><button class="top-link" data-action="library">Wissen</button><button class="top-link" data-action="history">Fortschritt</button><button class="top-link" data-action="install">App installieren</button><button class="top-link" data-action="settings">KI-Modus</button></div></header>
- <main class="layout"><aside class="sidebar"><div class="sidecard"><span class="eyebrow">TRAININGSABLAUF</span><div class="steps">${['Auswahl','Wissensmodule','Fallbeispiel','Nachbesprechung'].map((label,i)=>`<div class="step ${i===active?'active':i<active?'done':''}"><span class="num">${i<active?'✓':i+1}</span><span>${label}</span></div>`).join('')}</div></div><div class="sidefoot">Realistische Übungssituationen für den Einsatzdienst. Keine medizinische oder rechtliche Freigabe.</div></aside><section class="content">${content}</section></main><footer class="footer"><span>© Einsatzdialog · Prototyp · Version 0.8.1 · 10/2026</span><span>Als Web-App installierbar · Quellenbasiert · Fiktive Fälle</span></footer>`;
+ <main class="layout"><aside class="sidebar"><div class="sidecard"><span class="eyebrow">TRAININGSABLAUF</span><div class="steps">${['Auswahl','Wissensmodule','Fallbeispiel','Nachbesprechung'].map((label,i)=>`<div class="step ${i===active?'active':i<active?'done':''}"><span class="num">${i<active?'✓':i+1}</span><span>${label}</span></div>`).join('')}</div></div><div class="sidefoot">Realistische Übungssituationen für den Einsatzdienst. Keine medizinische oder rechtliche Freigabe.</div></aside><section class="content">${content}</section></main><footer class="footer"><span>© Einsatzdialog · Prototyp · Version 0.9 · 10/2026</span><span>Als Web-App installierbar · Quellenbasiert · Fiktive Fälle</span></footer>`;
  if(state.screen==='play') {
   const feed=root.querySelector('.message-feed'); if(feed) feed.scrollTop=feed.scrollHeight;
   const field=root.querySelector('textarea[name=reply]'); if(field&&!state.busy && !('ontouchstart' in window))field.focus({preventScroll:true});
@@ -44,7 +44,7 @@ function page(template,content){
 }
 function showSetup(){
  const roleButtons=Object.entries(D.roles).map(([id,r])=>`<button type="button" class="choice ${state.role===id?'selected':''}" data-action="role" data-id="${id}"><span class="mark">${id==='feuerwehr'?'F':id==='rettungsdienst'?'R':id==='thw'?'T':'P'}</span><span><strong>${r.name}</strong><small>${r.short}</small></span></button>`).join('');
- const lessonKeys=['basics','psychology','stress','suicide','grief','conflict','safety','children','handover'];
+ const lessonKeys=window.EINSATZDIALOG_CMS_TRAINING_KEYS||['basics','psychology','stress','suicide','grief','conflict','safety','children','handover'];
  const topics=lessonKeys.map((key,i)=>`<button type="button" data-action="choose-topic" data-id="${key}" class="topic-option ${state.topic===key?'selected':''}" aria-pressed="${state.topic===key}"><span class="topic-option-num">${String(i+1).padStart(2,'0')}</span><span class="topic-option-title">${esc(D.lessons[key].title)}<small>KI erstellt eine neue passende Lage</small></span><span class="topic-option-symbol">${state.topic===key?'✓':'→'}</span></button>`).join('');
  page('setup',`<div class="intro-header"><span class="eyebrow">EINSATZDIALOG · TRAINING</span><h1>Erst lernen.<br>Dann entscheiden.</h1><p>${state.mode==='hidden'?'Wähle deine Organisation und Schwierigkeit. Die KI erstellt daraus einen zufälligen Einsatz. Welche Problemlage dahintersteckt, erfährst du erst im Gespräch.':'Wähle deine Organisation, den fachlichen Schwerpunkt und die Schwierigkeit. Die KI erstellt danach eine neue, in sich schlüssige Einsatzlage.'}</p></div>
  <div class="sheet"><div class="field-group"><span class="fieldset-title">01 / Einsatzorganisation</span><div class="choices">${roleButtons}</div></div>
@@ -94,7 +94,7 @@ async function cloudCreateCase(){
  return validateGeneratedCase(data.scenario);
 }
 function showLearn(){
- const ids=['basics','psychology','stress','suicide','grief','conflict','safety','children','handover'];
+ const ids=window.EINSATZDIALOG_CMS_LIBRARY_KEYS||['basics','psychology','stress','suicide','grief','conflict','safety','children','handover'];
  const lesson=D.lessons[state.lessonId]||D.lessons.basics;
  const step=Math.min(Math.max(state.lessonStep,0),lesson.cards.length-1);
  const c=lesson.cards[step],nr=step+1,count=lesson.cards.length;
@@ -389,4 +389,17 @@ root.addEventListener('change',e=>{if(e.target.dataset.action==='select-scenario
  if(e.target.dataset.action==='select-topic'){state.topic=e.target.value;state.selected='random';}if(e.target.dataset.action==='select-model')state.model=e.target.value;if(e.target.dataset.action==='pin'){state.pin=e.target.value.trim();state.aiAvailable=false;try{sessionStorage.setItem(PIN_STORE,state.pin)}catch{}}if(state.screen==='setup')render()});
 root.addEventListener('submit',async e=>{if(e.target.id!=='chatForm')return;e.preventDefault();await send(e.target);if(state.message){const c=root.querySelector('.composer');if(c){const p=document.createElement('p');p.className='alert small';p.textContent=state.message;c.prepend(p)}}});
 render();
+if(window.EINSATZDIALOG_CONTENT_READY){
+ window.EINSATZDIALOG_CONTENT_READY.then(()=>{
+  // Always leave an ongoing live simulation and feedback alone.
+  if(state.screen==='setup'||state.screen==='learn'){
+    const keys=window.EINSATZDIALOG_CMS_LIBRARY_KEYS || [];
+    if(!D.lessons[state.lessonId])state.lessonId='basics';
+    if(!D.lessons[state.topic])state.topic='basics';
+    if(state.screen==='learn' && !keys.includes(state.lessonId))state.lessonId='basics';
+    state.lessonStep=Math.min(state.lessonStep,Math.max(0,(D.lessons[state.lessonId]?.cards?.length||1)-1));
+    render();
+  }
+ });
+}
 })();
