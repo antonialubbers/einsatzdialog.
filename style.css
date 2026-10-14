@@ -62,3 +62,6 @@ button,input,textarea,select{font-size:max(16px,1em)}
 /* 0.7: iPad-kompatibles URL-Eingabefeld in den Cloud-KI-Einstellungen */
 .field-group input[type="url"]{display:block;width:100%;max-width:620px;min-height:45px;border:1px solid #cbd3cf;border-radius:8px;padding:11px 12px;background:#fff;color:var(--ink);outline:none;font-size:16px;overflow-wrap:anywhere}
 @media(max-width:700px){.field-group input[type="url"]{max-width:100%}.settings-row{align-items:stretch;flex-direction:column}.settings-row .primary{width:100%}.segment{flex-wrap:wrap}}
+
+/* 0.8: ausführliche Einsatzlage vor dem ersten Gespräch */
+.briefing-card{margin:16px 0 22px;padding:20px 22px;background:#f7f9f6;border:1px solid #d8e3da;border-radius:12px;line-height:1.65;color:#263b47}.briefing-card h3{margin:0 0 9px;font-size:1.2rem}.briefing-card h4{font-size:.9rem;margin:21px 0 7px}.briefing-card ul,.briefing-card ol{padding-left:23px;margin:8px 0}.briefing-card li{margin:0 0 7px}.brieftext{white-space:pre-line;line-height:1.7}.briefing-note{font-size:.81rem;color:#6d7c7a;border-top:1px solid #d6dfd8;padding-top:13px;margin-top:18px}.creating-stage{display:grid;justify-items:start;gap:16px;padding:30px 8px}.creating-stage .loader{width:28px;height:28px;border-width:3px}.creating-stage p{color:#63727d;margin:0}.topic-option-title small{font-weight:400}
