@@ -1,0 +1,8 @@
+/* EINSATZDIALOG 0.10 · vom Admin editierbare Darstellung */
+html.ed-layout-wide .layout{max-width:1530px;grid-template-columns:250px minmax(0,1fr)}
+html.ed-layout-compact .layout{max-width:1070px;grid-template-columns:220px minmax(0,1fr);gap:24px}
+html.ed-no-sidebar .layout{grid-template-columns:minmax(0,1fr)}
+html.ed-no-sidebar .sidebar{display:none!important}
+html.ed-no-sidebar .layout .content{width:100%;min-width:0}
+.footer [hidden],.top-link[hidden]{display:none!important}
+@media(max-width:850px){html.ed-layout-wide .layout,html.ed-layout-compact .layout{grid-template-columns:minmax(0,1fr)}}
