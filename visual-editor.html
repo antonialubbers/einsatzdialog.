@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>EINSATZDIALOG – Visueller Seiteneditor (Vorschau)</title>
+<link rel="stylesheet" href="./visual-editor.css?v=012">
+<script src="./cms-config.js?v=091"></script>
+<script src="./visual-editor.js?v=012" defer></script>
+</head>
+<body>
+<header class="top">
+  <a href="./admin.html">← Verwaltung</a>
+  <strong>EINSATZDIALOG <span>VISUELLER EDITOR · 0.12</span></strong>
+  <a href="./index.html" target="_blank" rel="noopener">Webseite öffnen ↗</a>
+</header>
+<main>
+  <section id="loading" class="notice" role="status">Adminberechtigung und Seiteneinstellungen werden geprüft …</section>
+  <section id="unauthorized" class="notice" hidden>
+    <h1>Anmeldung erforderlich</h1>
+    <p id="auth-error"></p>
+    <a href="./admin.html">Zum Administrationsbereich</a>
+  </section>
+  <section id="workspace" hidden>
+    <div class="title-row">
+      <div>
+        <p class="eyebrow">VISUELLER SEITENEDITOR · TRAININGSAUSWAHL</p>
+        <h1>Deine Webseite. Dein Aufbau.</h1>
+        <p class="sub">Bausteine hinzufügen, auswählen, verschieben und rechts bearbeiten. Änderungen werden erst mit „Veröffentlichen“ live.</p>
+      </div>
+      <div class="actions">
+        <button id="undo" class="subtle" type="button">Verwerfen</button>
+        <button id="save" class="primary" type="button">Veröffentlichen</button>
+      </div>
+    </div>
+    <p class="status" id="message" hidden role="status"></p>
+    <div class="editor">
+      <aside class="panel library">
+        <h2><span>01</span> Bausteine</h2>
+        <p class="hint">Neue Inhalte einfügen. Interaktive Pflichtfelder bleiben funktionsfähig.</p>
+        <div class="library-buttons" id="library">
+          <button data-add="heading">＋ Überschrift</button>
+          <button data-add="text">＋ Textabschnitt</button>
+          <button data-add="notice">＋ Infobox</button>
+          <button data-add="divider">＋ Trennlinie</button>
+          <button data-add="button">＋ Aktionsbutton</button>
+        </div>
+        <hr>
+        <h2><span>02</span> Seitentitel</h2>
+        <label>Oberzeile<input id="introTag" maxlength="90" placeholder="EINSATZDIALOG · TRAINING"></label>
+        <label>Große Überschrift<input id="introTitle" maxlength="110" placeholder="Erst lernen. Dann entscheiden."></label>
+        <label>Beschreibung (leer = dynamischer Originaltext)<textarea id="introText" rows="3" maxlength="440"></textarea></label>
+        <hr>
+        <h2><span>03</span> Darstellungen</h2>
+        <label>Kommunikationsthemen<select id="topicStyle">
+          <option value="tiles">Neun Kacheln</option>
+          <option value="accordion">Aufklappbare, scrollbare Liste</option>
+        </select></label>
+        <label>Höhe der geöffneten Liste<input id="topicMaxHeight" type="range" min="160" max="480" step="20"><span id="topicHeightLabel" class="hint"></span></label>
+        <label>Organisationen<select id="organizationStyle">
+          <option value="grid">Kacheln</option>
+          <option value="list">Liste</option>
+        </select></label>
+        <label>Abstände<select id="spacing">
+          <option value="comfortable">Großzügig</option>
+          <option value="compact">Kompakt</option>
+        </select></label>
+      </aside>
+      <section class="canvas-panel">
+        <div class="panel-heading">
+          <div><h2>Seitenaufbau</h2><p class="hint">Baustein anklicken und rechts bearbeiten. Mit ⠿ ziehen oder ↑ ↓ verschieben.</p></div>
+          <span id="count" class="count"></span>
+        </div>
+        <div class="canvas">
+          <div class="canvas-intro"><small id="introPreviewTag">EINSATZDIALOG · TRAINING</small><h2 id="introPreviewTitle">Erst lernen. Dann entscheiden.</h2><p id="introPreviewText"></p></div>
+          <div id="blocks" class="blocks" aria-label="Bausteine der Trainingsauswahl"></div>
+        </div>
+        <p class="hint under">Die Vorschau bildet die Trainingsauswahl nach. Die öffentliche App übernimmt dieselben Einstellungen und ihre echten funktionalen Auswahlfelder.</p>
+      </section>
+      <aside class="panel inspector">
+        <h2><span>04</span> Eigenschaften</h2>
+        <div id="inspectorEmpty" class="hint">Wähle in der Mitte einen Baustein aus.</div>
+        <div id="inspectorFields"></div>
+        <div class="inspector-actions">
+          <button id="moveUp" type="button" class="subtle" disabled>↑ Hoch</button>
+          <button id="moveDown" type="button" class="subtle" disabled>↓ Runter</button>
+          <button id="delete" type="button" class="danger" hidden>Baustein entfernen</button>
+        </div>
+        <hr>
+        <h3>Wichtige Grenze</h3>
+        <p class="hint">Hier bearbeitest du die Trainingsauswahl. Die Simulation, Wissensmodule und Nachbesprechung werden nicht umgebaut. Neue Funktionen benötigen echte Programmlogik, nicht nur ein Textfeld.</p>
+      </aside>
+    </div>
+  </section>
+</main>
+</body>
+</html>
