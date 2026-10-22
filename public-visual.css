@@ -1,0 +1,9 @@
+/* EINSATZDIALOG 0.12: user-managed content blocks */
+.sheet .ed-custom-block{background:var(--card,#fffdfa);border:1px solid #dae4df;border-radius:10px;padding:18px 20px;margin:6px 0 10px;color:var(--ink,#152338)}
+.sheet .ed-custom-block[hidden]{display:none!important}
+.sheet .ed-custom-block p{white-space:pre-wrap;margin:6px 0}
+.sheet .ed-custom-block h2{font-size:1.55rem;margin:0}
+.sheet .ed-custom-block strong{display:block}
+.sheet .ed-custom-divider{background:none;border:none;padding:0}
+.sheet .ed-custom-divider hr{border:0;border-top:1px solid #bfcfc8}
+.sheet .ed-custom-button button{padding:11px 18px}

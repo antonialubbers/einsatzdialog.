@@ -12,12 +12,16 @@
   let queued = false;
   const safe = raw => {
     const h = raw?.home && typeof raw.home === 'object' ? raw.home : {};
+    const blocks = (Array.isArray(h.blocks) ? h.blocks : []).filter(b => b && typeof b.id === 'string' && ['heading','text','notice','divider','button'].includes(b.type)).slice(0,60);
+    const all = [...DEFAULT_ORDER, ...blocks.map(b => b.id)];
     const order = [...new Set([
-      ...(Array.isArray(h.order) ? h.order.filter(id => DEFAULT_ORDER.includes(id)) : []),
-      ...DEFAULT_ORDER
+      ...(Array.isArray(h.order) ? h.order.filter(id => all.includes(id)) : []),
+      ...all
     ])];
     return {
       order,
+      blocks,
+      intro: {tag: String(h.intro?.tag || '').slice(0,90), title: String(h.intro?.title || '').slice(0,110), text: String(h.intro?.text || '').slice(0,440)},
       topicStyle: h.topicStyle === 'accordion' ? 'accordion' : 'tiles',
       topicMaxHeight: Number.isFinite(Number(h.topicMaxHeight))
         ? Math.max(160, Math.min(480, Number(h.topicMaxHeight))) : 280,
@@ -87,9 +91,17 @@
     }
     if (grid) grid.remove();
     sheet.replaceChildren();
+    for (const data of layout.blocks) map[data.id] = customElement(data);
     for (const id of layout.order) {
       const node = map[id];
       if (node) sheet.append(node);
+    }
+    const intro = content.querySelector(':scope > .intro-header');
+    if (intro) {
+      const tag = intro.querySelector('.eyebrow'), heading = intro.querySelector('h1'), desc = intro.querySelector('p');
+      if (tag && layout.intro.tag) tag.textContent = layout.intro.tag;
+      if (heading && layout.intro.title) heading.textContent = layout.intro.title;
+      if (desc && layout.intro.text) desc.textContent = layout.intro.text;
     }
     for (const el of extra) sheet.append(el);
     sheet.classList.add('ed-arranged-home');
@@ -99,6 +111,18 @@
     if (layout.topicStyle === 'accordion' && topics?.querySelector('.topic-options')) {
       topicAccordion(topics, layout.topicMaxHeight);
     }
+  }
+  function customElement(data) {
+    const block = document.createElement('div');
+    block.className = 'ed-layout-section ed-custom-block ed-custom-' + data.type;
+    if (data.visible === false) { block.hidden = true; return block; }
+    function piece(tag, text) { const x=document.createElement(tag); x.textContent=String(text||''); block.append(x); return x; }
+    if (data.type==='heading') piece('h2',data.title);
+    if (data.type==='text') piece('p',data.body);
+    if (data.type==='notice') { piece('strong',data.title); piece('p',data.body); }
+    if (data.type==='divider') block.append(document.createElement('hr'));
+    if (data.type==='button') {const btn=piece('button',data.label||'Fachwissen ansehen');btn.type='button';btn.className='secondary';btn.dataset.action=['library','home','settings','history'].includes(data.action)?data.action:'library';}
+    return block;
   }
   function schedule() {
     if (queued) return;
