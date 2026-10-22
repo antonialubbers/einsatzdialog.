@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>EINSATZDIALOG – Seitenbaukasten</title>
+  <link rel="stylesheet" href="./layout-editor.css?v=011">
+  <script src="./cms-config.js?v=091"></script>
+  <script src="./layout-editor.js?v=011" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <a class="back" href="./admin.html">← Zur Verwaltung</a>
+    <strong>EINSATZDIALOG <span>SEITENBAUKASTEN</span></strong>
+    <a class="back" href="./index.html" target="_blank" rel="noopener">Öffentliche Webseite ↗</a>
+  </header>
+  <main class="main">
+    <section id="loading" class="notice">Administrationsrechte und Layout werden geprüft …</section>
+    <section id="unauthorized" class="notice" hidden>
+      <h1>Anmeldung erforderlich</h1>
+      <p id="auth-error">Bitte im Administrationsbereich anmelden.</p>
+      <a class="button primary" href="./admin.html">Zum Administrationsbereich</a>
+    </section>
+    <section id="editor" hidden>
+      <div class="heading">
+        <div>
+          <div class="eyebrow">DEINE WEBSEITE, DEIN AUFBAU</div>
+          <h1>Seitenbaukasten.</h1>
+          <p>Elemente per Ziehen oder mit ↑ ↓ sortieren. Rechts siehst du vor dem Veröffentlichen eine Vorschau.</p>
+        </div>
+        <div class="save-controls">
+          <button id="reset" class="button outline" type="button">Änderungen verwerfen</button>
+          <button id="save" class="button primary" type="button">Layout veröffentlichen</button>
+        </div>
+      </div>
+      <div id="message" class="message" hidden role="status" aria-live="polite"></div>
+      <div class="workspace">
+        <div class="controls">
+          <section class="panel">
+            <div class="subhead"><span>01</span><h2>Trainingsseite anordnen</h2></div>
+            <p>Ziehe die Bausteine am Griff <strong>⠿</strong> in eine neue Reihenfolge. Auf dem iPad funktionieren auch die Pfeile.</p>
+            <div id="blocks" class="blocks" aria-label="Reihenfolge der Seitenbausteine"></div>
+          </section>
+          <section class="panel">
+            <div class="subhead"><span>02</span><h2>Themenauswahl gestalten</h2></div>
+            <label class="label" for="topicStyle">Darstellung der Kommunikationsthemen</label>
+            <select id="topicStyle" class="input">
+              <option value="tiles">Kacheln (wie bisher)</option>
+              <option value="accordion">Aufklappbare, scrollbare Liste</option>
+            </select>
+            <label class="label" for="maxHeight">Höhe der geöffneten Themenliste: <strong id="heightValue">280 px</strong></label>
+            <input id="maxHeight" type="range" min="160" max="480" value="280" step="20">
+            <p class="hint">Die neun Trainingsgebiete bleiben erhalten. Die Auswahl funktioniert weiter wie bisher.</p>
+          </section>
+          <section class="panel">
+            <div class="subhead"><span>03</span><h2>Weitere Darstellung</h2></div>
+            <label class="label" for="organizationStyle">Einsatzorganisationen</label>
+            <select id="organizationStyle" class="input">
+              <option value="grid">Zwei Spalten</option>
+              <option value="list">Unter-einander als Liste</option>
+            </select>
+            <label class="label" for="spacing">Abstände zwischen den Bausteinen</label>
+            <select id="spacing" class="input">
+              <option value="comfortable">Großzügig</option>
+              <option value="compact">Kompakt</option>
+            </select>
+          </section>
+          <div class="explain">
+            <strong>Was dieser erste Seitenbaukasten kann</strong>
+            <p>Er verändert die Anordnung der Trainingsseite und die Darstellung ihrer Auswahlfelder. Neue Funktionen oder komplett neue Bausteintypen benötigen weiterhin Programmierung. Lerninhalte, KI-Verbindung und alle übrigen Seiten werden nicht verändert.</p>
+          </div>
+        </div>
+        <aside class="preview-shell">
+          <div class="preview-title"><strong>Live-Vorschau</strong><span>Nicht veröffentlicht</span></div>
+          <div class="preview-screen">
+            <div class="preview-nav"><b>⌁ EINSATZDIALOG</b><small>Wissen · Fortschritt · KI-Modus</small></div>
+            <div class="preview-intro"><small>EINSATZDIALOG · TRAINING</small><h2>Erst lernen.<br>Dann entscheiden.</h2><p>Trainingsauswahl für deine Einsatzkommunikation</p></div>
+            <div id="previewBlocks" class="preview-blocks"></div>
+          </div>
+          <p class="hint">Die Vorschau zeigt den Aufbau schematisch. Auf der öffentlichen Webseite wird dein echtes Layout verwendet.</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
