@@ -12,7 +12,7 @@ const STANDALONE=()=>window.matchMedia('(display-mode: standalone)').matches || 
 const readPin=()=>{try{return sessionStorage.getItem(PIN_STORE)||''}catch{return ''}};
 const readStore=()=>{try{return JSON.parse(localStorage.getItem(STORE)||'[]')}catch{return []}};
 const saveStore=a=>{try{localStorage.setItem(STORE,JSON.stringify(a.slice(0,80)))}catch{}};
-const state={generatedCase:null,creationError:'',screen:'setup',role:'feuerwehr',difficulty:3,mode:'guided',topic:'basics',selected:'random',lessonId:'basics',lessonStep:0,learnOrigin:'case',engine:(readCloudUrl()&&readCloudCode()?'cloud':'offline'),cloudUrl:readCloudUrl(),cloudCode:readCloudCode(),cloudAvailable:false,cloudStatus:'Noch nicht geprüft',cloudProvider:'gemini',model:'einsatzdialog-simulation:latest',modelList:[],aiAvailable:false,pin:readPin(),training:null,turns:[],busy:false,currentFocus:null,progress:readStore(),message:'',failedDraft:'',variant:0,aiFeedback:'',reviewBusy:false};
+const state={generatedCase:null,creationError:'',screen:'setup',role:'feuerwehr',difficulty:3,mode:'guided',topic:'basics',selected:'random',lessonId:'basics',lessonStep:0,learnOrigin:'case',engine:(readCloudUrl()&&readCloudCode()?'cloud':'offline'),cloudUrl:readCloudUrl(),cloudCode:readCloudCode(),cloudAvailable:false,cloudStatus:'Noch nicht geprüft',cloudProvider:'gemini',model:'einsatzdialog-simulation:latest',modelList:[],aiAvailable:false,pin:readPin(),training:null,turns:[],busy:false,currentFocus:null,progress:readStore(),message:'',failedDraft:'',variant:0,aiFeedback:'',reviewBusy:false,reviewError:''};
 const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const icon=(name)=>({rail:'▥',home:'⌂',factory:'▤',crowd:'◎',route:'↗'}[name]||'◦');
 // Bei Überraschungsfällen wird der interne Schwerpunkt erst zum Start zufällig
@@ -323,61 +323,96 @@ async function send(form){
  const parsed=state.engine==='cloud'?parseCloudEnding(reply):{text:reply,outcome:null};
  state.turns.push({who:'person',text:parsed.text||reply});if(parsed.outcome)state.training.outcome=parsed.outcome;state.message='';}
  catch(err){state.failedDraft=txt;state.turns.pop();state.training.outcome=snap.outcome;state.training.turn=snap.turn;state.training.signals=snap.signals;state.training.privacyOpen=snap.privacyOpen;state.training.privateAttempt=snap.privateAttempt;state.training.seenRisk=snap.seenRisk;state.training.sceneChanges=snap.changes;state.message=(state.engine==='cloud'?'Cloud-KI nicht erreichbar: '+err.message+'. Öffne KI-Modus und prüfe Worker/Code.':state.engine==='ai'?'Lokale KI nicht erreichbar: '+err.message+'. Prüfe den lokalen Server.':'Antwort fehlgeschlagen: '+err.message);}
- finally{state.busy=false;persistDraft();render();}
+ finally{state.busy=false;persistDraft();if(state.training?.outcome&&!state.training.completed&&state.turns.at(-1)?.who==='person')finish();else render();}
 }
-function evaluate(){
- const s=cur(),tr=state.training,us=state.turns.filter(t=>t.who==='user');
- const evidences={};for(const t of us){for(const tag of mark(t.text)){if(!evidences[tag])evidences[tag]=[];evidences[tag].push(t.text)}};
- const req=s.criteria.map(k=>({id:k,...D.metrics[k],hits:evidences[k]||[],observed:!!evidences[k]?.length}));
- const caution=[];
- if(evidences.overpromise)caution.push({name:'Möglicherweise zu weit gehende Zusage',description:'Ein absolutes Versprechen kann im Einsatz nicht immer eingehalten werden. Prüfe, was tatsächlich gesichert ist.',quote:evidences.overpromise[0]});
- if(evidences.disclose)caution.push({name:'Vertraulichkeit beachten',description:'Die genannte Weitergabe könnte Persönlichkeitsrechte oder die Sicherheit der betroffenen Person berühren. Vorher den Zweck und die Befugnis klären.',quote:evidences.disclose[0]});
- if(s.id==='wohnhaus' && !tr.privacyOpen && us.length>1)caution.push({name:'Vertraulicher Rahmen bislang nicht hergestellt',description:'Begleitpersonen antworteten für die betroffene Person. Im Verlauf wurde keine erfolgreiche Gelegenheit für ein Einzelgespräch erkannt.',quote:null});
- if((s.id==='bahnhof'||s.id==='betrieb') && !evidences.safety && tr.seenRisk)caution.push({name:'Medizinischen Bedarf berücksichtigen',description:'Die Simulation lieferte einen Hinweis auf körperliche Beschwerden. Eine medizinische Einschätzung wäre zu prüfen.',quote:null});
- // A missing keyword is not proof of an error. Scoring is an orientation only.
- const score=Math.round(req.filter(x=>x.observed).length/Math.max(req.length,1)*100);
- const gap=req.filter(x=>!x.observed).map(x=>x.id);
- const cards= [...req].sort((a,b)=>Number(a.observed)-Number(b.observed));
- const focus=gap.find(k=>k==='safety'||k==='privacy'||k==='autonomy')||gap[0]||null;
- return {score,req,caution,focus,cards,criteria:s.criteria};
+function parseFeedback(raw){
+ const text=String(raw||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"").trim();
+ let v;try{v=JSON.parse(text)}catch{}
+ if(v&&typeof v.summary==="string"&&Array.isArray(v.strengths)&&Array.isArray(v.improvements))return {...v,format:"json"};
+ const titles=["Gesamtbild","Stärken","Kritische Gesprächsmomente","Bessere Formulierungen und Handlungen","Fachliche Grenzen","Nächster Lernschritt"];
+ const sections=[];let current;
+ for(const line of text.split(/\r?\n/)){
+  const m=line.trim().match(/^(?:#{1,4}\s*)?(?:\*\*)?\s*(?:\(([1-6])\)|([1-6])[.)])\s*[.:\-* ]*(.*)$/);
+  const n=m?Number(m[1]||m[2]):0;
+  if(n>0&&n<=6&&(m[3]||"").length<120){current={title:titles[n-1],lines:[]};sections.push(current)}
+  else if(current)current.lines.push(line);
+ }
+ const items=sections.filter(x=>x.lines.join("").trim()).map(x=>({title:x.title,content:x.lines.join("\n").trim()}));
+ return {format:"text",sections:items.length>=2?items:[{title:"Individuelle Nachbesprechung",content:text}]};
+}
+function feedbackHtml(raw){
+ const data=parseFeedback(raw);
+ const p=t=>`<p class="ai-p">${esc(String(t||"")).replace(/\n/g,"<br>")}</p>`;
+ if(data.format==="text")return `<div class="ai-grid">${data.sections.map((x,i)=>`<article class="reviewcard ai-card"><span class="eyebrow">${String(i+1).padStart(2,"0")} / NACHBESPRECHUNG</span><h3>${esc(x.title)}</h3>${p(x.content)}</article>`).join("")}</div>`;
+ const strengths=Array.isArray(data.strengths)?data.strengths.slice(0,4):[];
+ const improvements=Array.isArray(data.improvements)?data.improvements.slice(0,4):[];
+ const list=(items,negative)=>items.map((x,i)=>`<div class="ai-point"><h4>${i+1}. ${esc(x.title||"Beobachtung")}</h4>${x.quote?`<div class="quote">${esc(x.quote)}</div>`:""}${p(x.explanation)}${negative&&x.better?`<div class="softbox"><strong>Konkrete Alternative</strong>${p(x.better)}</div>`:""}</div>`).join("");
+ const outcome={gelungen:"Gelungener Abschluss",teilweise:"Teilweise gelungen",offen:"Offener Ausgang",eskaliert:"Eskalation",abbruch:"Sicherer Abbruch"}[data.outcome]||"Individuelle Auswertung";
+ const limits=Array.isArray(data.limitations)?data.limitations.slice(0,5):[];
+ return `<div class="ai-overall"><span class="toptag">${esc(outcome)}</span><h3>Das Gesamtbild</h3>${p(data.summary)}</div>
+ <div class="ai-grid">
+  <article class="reviewcard ai-card"><span class="eyebrow">01 / STÄRKEN</span><h3>Was dir gelungen ist</h3>${strengths.length?list(strengths,false):p("Keine eindeutig belegte Stärke. Dies ist keine automatische Negativbewertung.")}</article>
+  <article class="reviewcard ai-card"><span class="eyebrow">02 / VERBESSERUNGEN</span><h3>Was du anders machen könntest</h3>${improvements.length?list(improvements,true):p("Keine eindeutig belegte Fehlentscheidung. Weitere Lernmöglichkeiten gibt es trotzdem.")}</article>
+  <article class="reviewcard ai-card"><span class="eyebrow">03 / HINTERGRUND</span><h3>Was hinter dem Fall steckte</h3>${p(data.caseInsight)}</article>
+  <article class="reviewcard ai-card"><span class="eyebrow">04 / GRENZEN</span><h3>Was sich nicht sicher beurteilen lässt</h3>${limits.length?`<ul>${limits.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:p("Eine Simulation kann reale Menschen und örtliche Dienstvorgaben nur begrenzt abbilden.")}</article>
+ </div>
+ <article class="reviewcard ai-card ai-next"><span class="eyebrow">05 / NÄCHSTER LERNSCHRITT</span><h3>Das trainierst du als Nächstes</h3>${p(data.nextStep?.exercise)}${data.nextStep?.example?`<div class="softbox"><strong>Eine mögliche Formulierung oder Handlung</strong>${p(data.nextStep.example)}</div>`:""}${data.reflectionQuestion?`<div class="softbox"><strong>Reflexionsfrage</strong>${p(data.reflectionQuestion)}</div>`:""}</article>`;
 }
 function finish(){
- state.aiFeedback='';state.reviewBusy=false;
- state.training.completed=true;state.training.end=Date.now();state.training.result=evaluate();
- const s=cur();state.progress.unshift({scenario:s.id,scenarioName:s.label,role:state.training.role,difficulty:state.training.difficulty,date:new Date().toISOString(),result:state.training.result.score,focus:state.training.result.focus,turns:state.training.turn});
- saveStore(state.progress);state.screen='review';persistDraft();render();
+ if(!state.training||state.training.completed)return;
+ const tr=state.training,s=cur();
+ tr.completed=true;tr.end=Date.now();tr.reviewFocus=null;
+ state.aiFeedback="";state.reviewError="";state.reviewBusy=false;
+ state.progress.unshift({trainingId:tr.start,scenario:s.id,scenarioName:s.label,role:tr.role,difficulty:tr.difficulty,date:new Date().toISOString(),turns:tr.turn,reviewStatus:state.engine==="offline"?"unavailable":"pending",reviewText:""});
+ saveStore(state.progress);state.screen="review";
+ if(state.engine==="offline"){
+  state.reviewError="Für eine KI-Auswertung musst du Cloud-KI aktivieren. Eine regelbasierte Ersatzbewertung wird bewusst nicht angezeigt.";
+  render();return;
+ }
+ void makeAIReview();
 }
 function showReview(){
- const s=cur(),tr=state.training,e=tr.result||evaluate();
- const quotes=state.turns.filter(t=>t.who==='user').map(x=>x.text);const focusCard=e.focus?D.metrics[e.focus]:null;
- const metricHtml=e.req.map(m=>`<div class="metricrow"><div class="metrich"><strong>${esc(m.title)}</strong><span class="statuslabel ${m.observed?'found':'open'}">${m.observed?'Im Text erkennbar':'Nicht eindeutig erkennbar'}</span></div><p>${esc(m.observed?m.good:m.next)}</p>${m.observed?`<div class="quote">„${esc(m.hits[0].slice(0,170))}${m.hits[0].length>170?'…':''}“</div>`:''}<p class="tiny">Fachbasis: ${esc(m.source)} · ${esc(m.hint)}</p></div>`).join('');
- page('review',`<div class="intro-header"><span class="eyebrow">EINSATZNACHBESPRECHUNG / 04</span><h1>Was hat funktioniert?<br>Was trainierst du als Nächstes?</h1><p>Strukturiertes, mehrperspektivisches Feedback zu deinem tatsächlichen Gespräch. Keine Diagnose und keine offiziell validierte Einsatznote.</p></div>
- <div class="sheet"><div class="review-head"><div><span class="toptag">FALL ABGESCHLOSSEN</span><h2 style="margin:10px 0 3px">${esc(s.label)}</h2><p class="muted small">${tr.turn} Eingaben · ${esc(D.roles[tr.role].name)} · Schwierigkeit ${tr.difficulty}/5</p></div><div class="score-circle"><b>${e.score}%</b><small>Signalabdeckung</small></div></div>
- <div class="callout"><strong>Zur Bewertung:</strong> Die Zahl zeigt, wie viele für diesen Fall wichtige Kommunikationsbereiche die einfache Texterkennung gefunden hat. <strong>Sie ist keine Kompetenznote.</strong> Nicht erkannte Punkte können trotzdem richtig umgesetzt worden sein. Im KI-Modus bleibt diese technische Einschränkung bestehen.</div>
- <div class="scoregrid" style="margin-top:20px"><div class="reviewcard"><h3>01 / Kommunikationskompetenzen</h3>${metricHtml}</div><div class="reviewcard"><h3>02 / Lage und Entscheidungen</h3><span class="eyebrow">VERBORGENER HINTERGRUND</span><p>${esc(s.secret)}</p><hr class="section-rule"><h4>Was der Modus prüfen sollte</h4><p class="small muted">${esc(D.lessons[s.topic].lead)}</p><h4>Beobachtete Schritte</h4><p class="small muted">${tr.sceneChanges.length?tr.sceneChanges.map(v=>'• '+esc(v)).join('<br>'):'Keine explizite Zustandsänderung protokolliert.'}</p><hr class="section-rule"><h4>Einschränkungen der Simulation</h4><p class="small muted">Die automatische Signalabdeckung prüft vorwiegend Formulierungen, nicht die tatsächliche Qualität deiner Entscheidungen. Die ausführliche KI-Nachbesprechung ist zusätzlich möglich und muss kritisch geprüft werden.</p></div></div>
- <div class="scoregrid" style="margin-top:16px"><div class="reviewcard"><h3>03 / Kritische Stellen</h3>${e.caution.length?e.caution.map(c=>`<div class="improve"><strong>${esc(c.name)}</strong><p class="small">${esc(c.description)}</p>${c.quote?`<div class="quote">„${esc(c.quote.slice(0,200))}“</div>`:''}</div>`).join(''):'<p class="muted small">Die einfache Texterkennung hat kein klares Warnsignal für problematische Zusagen oder Informationsweitergabe gefunden. Das ersetzt keine fachliche Nachbesprechung.</p>'}<hr class="section-rule"><h4>Was ich nicht beurteilen kann</h4><p class="small muted">Nonverbale Kommunikation, tatsächliche Entscheidungsbefugnis, örtliche Regelungen und die Wirkung auf reale Menschen. Auch die gesamte fachliche Korrektheit lässt sich aus Schlüsselwörtern allein nicht prüfen.</p></div><div class="reviewcard"><h3>04 / Individueller Lernplan</h3>${focusCard?`<span class="eyebrow">EMPFOHLENER SCHWERPUNKT</span><h4>${esc(focusCard.title)}</h4><p class="small">${esc(focusCard.next)}</p><div class="softbox"><strong>Nächste Übung</strong><p>Ein neuer Fall mit verändertem Umfeld und besonderem Augenmerk auf ${esc(focusCard.title.toLowerCase())}. Die Situation verrät dir die Lösung nicht vorab.</p></div>`:'<p class="small muted">Alle vorgesehenen Kriterien wurden sprachlich angesprochen. Übe als Nächstes eine neue, komplexere Einsatzlage und überprüfe deine Entscheidungen im Detail.</p>'}
- <h4>Reflexion</h4><p class="small muted">Welche Aussage hat Vertrauen aufgebaut? Wo hättest du besser nachfragen können? Was würdest du bei einer realen Übergabe dokumentieren?</p></div></div>
- <div style="margin-top:19px" class="callout warm"><strong>Fachquellen:</strong> ${D.lessons[s.topic].sources.map(id=>{let z=D.sources.find(x=>x.id===id);return `<a href="${z.url}" target="_blank" rel="noopener">${z.id}</a>`}).join(' · ')}. Empfohlene Inhalte dienen dem Lernen, nicht als verbindliche Dienstanweisung.</div>
- ${state.engine!=='offline'?`<div class="reviewcard" style="margin-top:16px"><h3>05 / Unabhängige KI-Nachbesprechung (experimentell)</h3><p class="small muted">Zusätzlich zur regelbasierten Abdeckung prüft eine getrennte KI-Auswertung den dokumentierten Dialog. Nicht zertifiziert und nicht als Einsatzfreigabe geeignet.</p>${state.aiFeedback?`<div class="softbox" style="white-space:pre-wrap;line-height:1.65">${esc(state.aiFeedback)}</div>`:''}<div class="actions"><button class="secondary" data-action="ai-review" ${state.reviewBusy?'disabled':''}>${state.reviewBusy?'Auswertung läuft …':'Ausführliche KI-Nachbesprechung erstellen'}</button></div></div>`:''}
- <div class="actions"><button class="primary" data-action="improve" ${e.focus?'':'disabled'}>Gezielten Übungsfall starten →</button><button class="secondary" data-action="new">Völlig neuen Fall starten</button><button class="secondary" data-action="export">Gespräch exportieren</button></div></div>`);
+ const s=cur(),tr=state.training;
+ const last=[...state.turns].reverse().find(x=>x.who==="person")?.text||"";
+ const focus=tr.reviewFocus&&D.metrics[tr.reviewFocus]?tr.reviewFocus:null;
+ const body=state.reviewBusy?`<div class="creating-stage ai-loading"><span class="loader"></span><strong>Die KI analysiert dein Gespräch …</strong><p>Berücksichtigt werden deine Aussagen, Entscheidungen, praktische Handlungen und der tatsächliche Gesprächsverlauf.</p></div>`:
+ state.aiFeedback?feedbackHtml(state.aiFeedback):
+ `<div class="callout warm"><strong>KI-Auswertung noch nicht verfügbar</strong><p>${esc(state.reviewError||"Für diesen Fall liegt noch keine KI-Auswertung vor.")}</p></div>${state.engine==="offline"?"":'<div class="actions"><button class="primary" data-action="ai-review">KI-Auswertung erneut versuchen</button></div>'}`;
+ page("review",`<div class="intro-header"><span class="eyebrow">EINSATZNACHBESPRECHUNG / 04</span><h1>Was ist wirklich passiert?<br>Was kannst du daraus lernen?</h1><p>Individuelle KI-Auswertung statt Schlüsselwortsuche und Prozentnote.</p></div><div class="sheet">
+ <div class="review-head"><div><span class="toptag">FALL ABGESCHLOSSEN</span><h2 style="margin:10px 0 3px">${esc(s.label)}</h2><p class="muted small">${tr.turn} Eingaben · ${esc(D.roles[tr.role].name)} · Stufe ${tr.difficulty}/5</p></div></div>
+ ${last?`<details class="softbox ai-last"><summary>Letzte Szene des Falles</summary><p>${esc(last)}</p></details>`:""}
+ ${body}
+ <div class="callout warm ai-disclaimer"><strong>Einordnung:</strong> Dieses Feedback ist eine KI-generierte Lernhilfe, keine validierte Kompetenzprüfung. Reale Reaktionen, unbeschriebene Handlungen und örtliche Vorgaben sind nicht sicher beurteilbar.</div>
+ <div class="actions"><button class="primary" data-action="improve" ${focus?"":"disabled"}>Gezielt weitertrainieren</button><button class="secondary" data-action="new">Neuen Fall starten</button><button class="secondary" data-action="export">Gespräch und Feedback exportieren</button>${state.aiFeedback?'<button class="textbtn" data-action="ai-review">Feedback neu erstellen</button>':""}</div></div>`);
 }
 async function makeAIReview(){
- if(state.reviewBusy)return;
- if(state.engine==='cloud'){state.reviewBusy=true;state.aiFeedback='';render();try{state.aiFeedback=await cloudCall('review')}catch(err){state.aiFeedback='KI-Nachbesprechung nicht verfügbar: '+(err?.message||'Fehler')}finally{state.reviewBusy=false;render()}return;}
- if(HOSTED_PWA){state.aiFeedback='Die lokale Ollama-Auswertung funktioniert nur über den lokalen Computer-Server.';render();return;}
- if(!state.aiAvailable){state.aiFeedback='Verbinde zuerst Ollama unter KI-Modus und wähle für das Training den lokalen Modus.';render();return;}
- state.reviewBusy=true;state.aiFeedback='';render();
+ if(state.reviewBusy||!state.training)return;
+ const tr=state.training,s=cur(),record=state.progress.find(x=>x.trainingId===tr.start);
+ state.reviewBusy=true;state.reviewError="";state.aiFeedback="";render();
  try{
-  const tr=state.training,s=cur();
-  const sourceNames=D.lessons[s.topic].sources.map(id=>D.sources.find(x=>x.id===id)?.name).filter(Boolean);
-  const transcript=state.turns.slice(-24).map(x=>(x.who==='user'?'SPIELER: ':'SIMULATION: ')+x.text.slice(0,1300)).join('\n');
-  const system=`Du bist eine unabhängige Ausbilderperson für den fiktiven Einsatzkommunikationsfall. Arbeite ausschließlich mit belegbaren Zitaten und beobachtbaren Entscheidungen. Trenne Spielerfehler von Simulationsereignissen. Sag ausdrücklich, wenn etwas nicht beurteilbar ist. Keine erfundenen Quellen oder Rechtsnormen, keine klinischen Diagnosen, keine automatische Note. Antworte mit den vier Überschriften STÄRKEN, KRITISCHE STELLEN, UNKLARE PUNKTE, NÄCHSTER LERNSCHRITT. Nutze konkrete Alternativformulierungen. Kompakt, fair, aber differenziert.`;
-  const context=`Organisation: ${D.roles[tr.role].name}; Schwierigkeit: ${tr.difficulty}/5. Fall: ${s.label}. Tatsächlicher geheimer Hintergrund für die Auswertung: ${s.secret}. Schwerpunkt: ${tr.focus||'offen'}. Fachthemen laut App: ${sourceNames.join(', ')}. Das sind Quellen-Hinweise, keine vom Modell gelesenen Volltexte.\n\nTRANSKRIPT:\n${transcript}`;
-  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-PIN':state.pin},body:JSON.stringify({model:'einsatzdialog-feedback:latest',review:true,messages:[{role:'system',content:system},{role:'user',content:context}]}),signal:AbortSignal.timeout(170000)});
-  const data=await res.json();if(!res.ok)throw new Error(data.error||'Keine Antwort vom Feedbackmodell');
-  state.aiFeedback=(data.message?.content||'Keine Auswertung erzeugt.').slice(0,6500);
- }catch(e){state.aiFeedback='KI-Nachbesprechung momentan nicht verfügbar: '+(e?.message||'Unbekannter Fehler')+'. Prüfe, ob einsatzdialog-feedback installiert ist.';}
- finally{state.reviewBusy=false;render();}
+  let feedback;
+  if(state.engine==="cloud")feedback=await cloudCall("review");
+  else if(state.engine==="ai"){
+   if(HOSTED_PWA)throw Error("Die lokale KI ist hier nicht verfügbar.");
+   const transcript=state.turns.slice(-24).map(x=>(x.who==="user"?"SPIELENDE PERSON: ":"SIMULIERTE FIGUR: ")+x.text.slice(0,1300)).join("\n");
+   const prompt=`Organisation: ${D.roles[tr.role].name}; Thema: ${D.lessons[tr.caseTopic||s.topic]?.title||s.topic}; Stufe: ${tr.difficulty}/5; Hintergrund: ${s.secret};\n${transcript}`;
+   const system="Du bist unabhängige Ausbilderperson für Einsatzkommunikation. Bewerte konkrete Nutzerentscheidungen mit belegten Originalzitaten, nicht generierte Reaktionen als Nutzerhandlungen. Gliedere: (1) Gesamtbild, (2) Stärken, (3) kritische Entscheidungen, (4) konkrete Alternativen, (5) Grenzen, (6) nächster Lernschritt. Keine Prozentnoten, keine erfundenen Fakten oder Quellen.";
+   const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","X-Einsatzdialog-PIN":state.pin},body:JSON.stringify({model:"einsatzdialog-feedback:latest",review:true,messages:[{role:"system",content:system},{role:"user",content:prompt}]}),signal:AbortSignal.timeout(170000)});
+   const data=await response.json();if(!response.ok)throw Error(data.error||"Lokale KI antwortet nicht");feedback=data.message?.content;
+  }else throw Error("Eine KI-Verbindung ist erforderlich.");
+  if(typeof feedback!=="string"||feedback.trim().length<50)throw Error("Die KI hat keine vollständige Auswertung geliefert.");
+  if(state.training!==tr)return;
+  state.aiFeedback=feedback.slice(0,13000);
+  const parsed=parseFeedback(state.aiFeedback);
+  tr.reviewFocus=parsed.format==="json"&&D.metrics[parsed.nextStep?.focus]?parsed.nextStep.focus:null;
+  if(record){record.reviewStatus="ready";record.reviewText=state.aiFeedback;record.focus=tr.reviewFocus;}
+ }catch(error){
+  if(state.training!==tr)return;
+  state.reviewError=(error?.message||"Unbekannter Fehler").slice(0,350);
+  if(record){record.reviewStatus="failed";record.reviewText="";}
+ }finally{
+  if(state.training===tr){state.reviewBusy=false;saveStore(state.progress);persistDraft();render();}
+ }
 }
 function showSettings(){page('settings',`<div class="intro-header"><span class="eyebrow">KI-EINSTELLUNGEN</span><h1>Mit echter KI trainieren.</h1><p>Deine GitHub-Web-App kann über einen Cloudflare Worker mit Gemini oder der OpenAI-API sprechen. Die Modellwahl erfolgt in Cloudflare. Ohne Verbindung bleibt der Offline-Modus verfügbar.</p></div>
  <div class="sheet"><div class="field-group"><span class="fieldset-title">Antwortmodus</span><div class="segment"><button data-action="engine" data-value="offline" class="${state.engine==='offline'?'selected':''}">Offline · regelbasiert</button><button data-action="engine" data-value="cloud" class="${state.engine==='cloud'?'selected':''}">Cloud-KI · Gemini / OpenAI</button>${!HOSTED_PWA?`<button data-action="engine" data-value="ai" class="${state.engine==='ai'?'selected':''}">Ollama</button>`:''}</div></div>
@@ -404,12 +439,15 @@ function showInstall(){
  <div class="actions"><button class="primary" data-action="home">Zum Training →</button></div></div>`);
 }
 
-function showHistory(){page('history',`<div class="intro-header"><span class="eyebrow">FORTSCHRITT</span><h1>Deine Trainingsübersicht.</h1><p>Alles bleibt in diesem Browser gespeichert. Du kannst die Verlaufsdaten jederzeit löschen.</p></div><div class="sheet"><h3>Abgeschlossene Fälle: ${state.progress.length}</h3>${state.progress.length?state.progress.map(p=>`<div class="progress-row"><div><strong>${esc(p.scenarioName)}</strong><br><span class="muted">${new Date(p.date).toLocaleDateString('de-DE')} · ${esc(D.roles[p.role]?.name||p.role)} · Stufe ${p.difficulty}</span></div><span class="toptag">${p.result}% Signalabdeckung</span></div>`).join(''):'<div class="softbox">Hier erscheinen deine abgeschlossenen Trainings. Beginne mit deinem ersten Fall.</div>'}<div class="actions"><button class="primary" data-action="home">Training starten →</button>${state.progress.length?'<button class="secondary" data-action="clear">Gespeicherte Ergebnisse löschen</button>':''}</div></div>`)}
+function showHistory(){
+ const rows=state.progress.map(x=>`<div class="progress-row"><div><strong>${esc(x.scenarioName)}</strong><br><span class="muted">${new Date(x.date).toLocaleDateString("de-DE")} · ${esc(D.roles[x.role]?.name||x.role)} · Stufe ${x.difficulty}</span><p class="tiny-hint">${x.reviewStatus==="ready"?"KI-Bericht gespeichert":x.reviewStatus==="failed"?"KI-Auswertung fehlgeschlagen":x.reviewStatus==="unavailable"?"Ohne KI-Auswertung":"Abgeschlossenes Training"}</p>${x.reviewText?`<details class="ai-history"><summary>KI-Bericht lesen</summary>${feedbackHtml(x.reviewText)}</details>`:""}</div></div>`).join("");
+ page("history",`<div class="intro-header"><span class="eyebrow">FORTSCHRITT</span><h1>Deine Trainingsübersicht.</h1><p>Gespeicherte KI-Berichte können hier erneut gelesen werden.</p></div><div class="sheet"><h3>Abgeschlossene Fälle: ${state.progress.length}</h3>${rows||'<div class="softbox">Hier erscheinen deine abgeschlossenen Trainings.</div>'}<div class="actions"><button class="primary" data-action="home">Training starten →</button>${state.progress.length?'<button class="secondary" data-action="clear">Gespeicherte Ergebnisse löschen</button>':""}</div></div>`);
+}
 function showCreating(){page('creating',`<div class="intro-header"><span class="eyebrow">NEUE EINSATZLAGE</span><h1>Ein Fall entsteht.</h1><p>${state.training?.mode==='hidden'?'Organisation und Schwierigkeit werden mit einer zufälligen Einsatzlage verknüpft. Das Thema bleibt verborgen.':'Organisation, Thema und Schwierigkeit werden mit einer neuen Ausgangslage verknüpft. Noch keine Tipps, noch keine Lösungen.'}</p></div><div class="sheet"><div class="creating-stage"><span class="loader"></span><strong>Die KI entwickelt jetzt Einsatzauftrag, Beteiligte, gesicherte Informationen und einen konsistenten Hintergrund.</strong><p>Das kann bei einer Cloud-KI etwas dauern. Bitte diese Seite offen lassen.</p></div></div>`)}
 function showCreateError(){page('create-error',`<div class="intro-header"><span class="eyebrow">FALLERSTELLUNG</span><h1>Der neue Fall konnte nicht erstellt werden.</h1></div><div class="sheet"><div class="callout warm">${esc(state.creationError)}</div><p>Wir zeigen dir keinen halbfertigen Fall als angeblich vollständige Übung.</p><div class="actions"><button class="primary" data-action="retry-create">Erneut versuchen</button><button class="secondary" data-action="home">Zur Auswahl</button><button class="textbtn" data-action="settings">KI-Verbindung prüfen</button></div></div>`)}
 function render(){if(state.screen==='creating')showCreating();else if(state.screen==='create-error')showCreateError();else if(state.screen==='setup')showSetup();else if(state.screen==='learn')showLearn();else if(state.screen==='play')showPlay();else if(state.screen==='review')showReview();else if(state.screen==='settings')showSettings();else if(state.screen==='history')showHistory();else if(state.screen==='install')showInstall();const ct=root.querySelector('#connection-status');if(ct){ct.textContent=navigator.onLine?'● Online':'● Offline';ct.classList.toggle('offline',!navigator.onLine)}}
-function newSetup(){state.generatedCase=null;state.creationError='';state.failedDraft='';state.screen='setup';state.training=null;state.turns=[];state.message='';state.selected='random';state.variant++;state.currentFocus=null;render()}
-function exportLog(){if(!state.training)return;const obj={app:'Einsatzdialog 0.8',exported:new Date().toISOString(),scenario:cur().label,briefing:{dispatch:cur().dispatch,observations:cur().observations,known:cur().known,prior:cur().prior},role:D.roles[state.training.role].name,difficulty:state.training.difficulty,mode:state.training.mode,transcript:state.turns,feedback:state.training.result};const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='einsatzdialog-training.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
+function newSetup(){state.reviewError='';state.aiFeedback='';state.reviewBusy=false;state.generatedCase=null;state.creationError='';state.failedDraft='';state.screen='setup';state.training=null;state.turns=[];state.message='';state.selected='random';state.variant++;state.currentFocus=null;render()}
+function exportLog(){if(!state.training)return;const obj={app:'Einsatzdialog 0.8',exported:new Date().toISOString(),scenario:cur().label,briefing:{dispatch:cur().dispatch,observations:cur().observations,known:cur().known,prior:cur().prior},role:D.roles[state.training.role].name,difficulty:state.training.difficulty,mode:state.training.mode,transcript:state.turns,feedback:{kind:'KI',status:state.reviewBusy?'pending':state.reviewError?'error':'ready',text:state.aiFeedback}};const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='einsatzdialog-training.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
 root.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b || ['SELECT','INPUT','TEXTAREA'].includes(b.tagName))return;if(b.tagName==='A')e.preventDefault();
  const action=b.dataset.action;
  if(action==='home'){state.screen='setup';state.currentFocus=null;}
@@ -430,11 +468,11 @@ root.addEventListener('click',async e=>{const b=e.target.closest('[data-action]'
  if(action==='lesson-prev'){state.lessonStep=Math.max(state.lessonStep-1,0);}
  if(action==='lesson-step'){state.lessonStep=Number(b.dataset.value);}
  if(action==='begin'||action==='retry-create'){await begin();return;}
- if(action==='finish')finish();
+ if(action==='finish'){finish();return;}
  if(action==='ai-review'){await makeAIReview();return;}
  if(action==='reset'){if(window.confirm('Aktuellen Fall wirklich abbrechen? Er wird nicht bewertet.'))newSetup();else return;}
  if(action==='new')newSetup();
- if(action==='improve'){state.currentFocus=state.training.result.focus;state.selected='random';state.mode='hidden';state.variant++;state.screen='setup';}
+ if(action==='improve'){state.currentFocus=state.training.reviewFocus||null;state.selected='random';state.mode='hidden';state.variant++;state.screen='setup';}
  if(action==='remove-focus')state.currentFocus=null;
  if(action==='export')exportLog();
  if(action==='check-ai'){await checkAI();return;}
