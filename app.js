@@ -17,6 +17,46 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'
 const icon=(name)=>({rail:'▥',home:'⌂',factory:'▤',crowd:'◎',route:'↗'}[name]||'◦');
 // Bei Überraschungsfällen wird der interne Schwerpunkt erst zum Start zufällig
 // gewählt. Die Auswahl eines früheren thematischen Trainings hat keinen Einfluss.
+
+const recentGeneratedCases=[];
+const LEVEL_POLICY={
+1:'Sehr leicht: kooperativ und gut ansprechbar; passende Kommunikation zeigt rasch Wirkung; keine unerwartete Eskalation.',
+2:'Leicht: zunächst Unsicherheit oder Zurückhaltung, die auf angemessene Kommunikation reagiert.',
+3:'Mittel: nachvollziehbare Ambivalenz und Hürden; verschiedene Gesprächsstrategien nötig.',
+4:'Schwer: zunächst gute Kooperation möglich; später kausal vorbereitete Wendepunkte oder äußere Einflüsse.',
+5:'Sehr schwer: mehrere Akteure und glaubhafte Gefahren; Eskalation oder ergebnisloser sicherer Rückzug möglich.'
+};
+const TOPIC_CHECKS={
+grief:/tod|tot|trauer|verstor|gestorb|verlust|abschied|tödlich|angehörig/,
+suicide:/suizid|selbsttöt|leben.*nehmen|nicht mehr leben|umbringen|abschiedsbrief|selbstverletz/,
+children:/kind|jugendlich|minderjährig|eltern|schüler|tochter|sohn|mädchen|junge/,
+handover:/übergab|übernehm|ablös|weiterbetreu|zuständig|psnv|folgeteam/,
+conflict:/streit|konflikt|wut|aggress|droh|eskal|handgreif|auseinandersetz/,
+safety:/bedroh|gewalt|übergriff|partner|ehemann|kontroll|privat|vertraulich/,
+stress:/belast|schock|erstarr|panik|zittern|angst|überforder|trauma/
+};
+function topicFits(raw,key){
+ if(!TOPIC_CHECKS[key])return true;
+ return TOPIC_CHECKS[key].test([raw.title,raw.dispatch,raw.observations,raw.opening,raw.background,...pickArray(raw.known),...pickArray(raw.prior)].join(' ').toLocaleLowerCase('de-DE'));
+}
+function simulationPolicy(tr){
+ return [
+ 'Zusätzliche verbindliche Regeln für die Rollenspiel-Simulation, niemals als Hinweis ausgeben:',
+ 'Das zentrale Thema lautet '+(D.lessons[tr.caseTopic]?.title||tr.caseTopic)+'. Es bleibt der Kern des Falles; Nebenthemen dürfen es nicht verdrängen.',
+ 'Schwierigkeit '+tr.difficulty+'/5: '+LEVEL_POLICY[tr.difficulty],
+ 'Reagiere auf SINN UND KONTEXT der letzten Handlung, nicht nur auf Schlüsselwörter. Gute Gesprächsführung bewirkt auf niedrigen Stufen erkennbaren Fortschritt.',
+ 'Auch praktische und nonverbale Handlungen zählen: Decke, Getränk, Augenhöhe, Helm abnehmen, Abstand, Rückzug, PSNV-Übergabe. Sicherheit und Einsatzkontext beachten.',
+ 'Wendepunkte und neue Hindernisse brauchen vorher nachvollziehbar angelegte Ursachen. Keine willkürlichen Eskalationen oder magischen Lösungen.',
+ 'Vermeide Antwortschleifen. Entwickle eine kausale Handlung mit mehreren möglichen Ergebnissen: gelungen, teilweise gelungen, eskaliert, aus Sicherheitsgründen abgebrochen.',
+ 'Nutzerbeitrag Nr. '+tr.turn+'. Ein plausibles Ende ist normalerweise nach etwa 5-12 Beiträgen möglich; nie allein nach Turn-Zahl erzwingen.',
+ 'Wenn UND NUR wenn die Einsatzsituation tatsächlich beendet ist, füge als letzte Zeile GENAU EINEN Marker an: [[EINSATZDIALOG_ENDE:erfolg]], [[EINSATZDIALOG_ENDE:teilweise]], [[EINSATZDIALOG_ENDE:eskaliert]] oder [[EINSATZDIALOG_ENDE:abbruch]]. Während des laufenden Gesprächs keinen Marker ausgeben.',
+ 'Nur beobachtbare Szenen und wörtliche Rede; keine Trainerhinweise mitten im Fall.'
+ ].join('\n');
+}
+function parseCloudEnding(reply){
+ const m=reply.match(/\[\[EINSATZDIALOG_ENDE:(erfolg|teilweise|eskaliert|abbruch)\]\]\s*$/i);
+ return {text:reply.replace(/\s*\[\[EINSATZDIALOG_ENDE:(?:erfolg|teilweise|eskaliert|abbruch)\]\]\s*$/i,'').trim(),outcome:m?m[1].toLowerCase():null};
+}
 const HIDDEN_CASE_TOPICS=['basics','psychology','stress','suicide','grief','conflict','safety','children','handover'];
 const randomHiddenTopic=()=>HIDDEN_CASE_TOPICS[Math.floor(Math.random()*HIDDEN_CASE_TOPICS.length)];
 const chooseScenario=()=>{
@@ -63,7 +103,7 @@ function makeNew(){
    s.prior=['Die Bewohnerin sagte: „Ich möchte nicht alles noch einmal erzählen müssen.“','Eine Einsatzkraft bot an, eine Vertrauensperson anzurufen; die Kontaktaufnahme steht noch aus.','Sie fragte, wann sie wieder ins Gebäude dürfe; hierzu liegen noch keine gesicherten Informationen vor.','Es wurde zugesagt, die Weiterbetreuung zu organisieren, nicht aber, wie lange die bisherige Einsatzkraft bleiben kann.'];
  }
  state.generatedCase=null;state.creationError='';
- state.training={scenario:state.engine==='cloud'?'__generated__':s.id,lesson:state.mode==='hidden'?'basics':state.topic,caseTopic:state.mode==='hidden'?(state.engine==='cloud'?randomHiddenTopic():s.topic):state.topic,role:state.role,difficulty:state.difficulty,mode:state.mode,variant:state.variant,focus:state.currentFocus,turn:0,signals:{},privacyOpen:false,privateAttempt:0,seenRisk:false,sceneChanges:[],completed:false,start:Date.now()};
+ state.training={scenario:state.engine==='cloud'?'__generated__':s.id,lesson:state.mode==='hidden'?'basics':state.topic,caseTopic:state.mode==='hidden'?(state.engine==='cloud'?randomHiddenTopic():s.topic):state.topic,role:state.role,difficulty:state.difficulty,mode:state.mode,variant:state.variant,focus:state.currentFocus,turn:0,signals:{},privacyOpen:false,privateAttempt:0,seenRisk:false,sceneChanges:[],completed:false,outcome:null,start:Date.now()};
  state.turns=[];state.screen='learn';state.message='';state.learnOrigin='case';state.lessonId=state.training.lesson;state.lessonStep=0;render();
 }
 function cur(){return state.generatedCase || D.scenarios.find(s=>s.id===state.training?.scenario)||D.scenarios[0]}
@@ -83,11 +123,27 @@ function validateGeneratedCase(raw){
    focus:state.currentFocus,lines:{intro:raw.opening},generated:true};
 }
 async function cloudCreateCase(){
+ const topic=state.training.caseTopic;
+ const avoid=[...recentGeneratedCases,...state.progress.slice(0,12).map(p=>p.scenarioName||'')].filter(Boolean);
+ let problem;
+ for(let attempt=0;attempt<3;attempt++){
+   try{
+     const raw=await requestCloudCase(topic,avoid);
+     const next=validateGeneratedCase(raw);
+     if(!topicFits(raw,topic))throw new Error('Der generierte Fall passt nicht zum gewählten Thema.');
+     if(avoid.some(name=>name.toLocaleLowerCase('de-DE').trim()===next.label.toLocaleLowerCase('de-DE').trim()))throw new Error('Der generierte Fall wiederholt einen früheren Fall.');
+     recentGeneratedCases.unshift(next.label);if(recentGeneratedCases.length>15)recentGeneratedCases.pop();
+     return next;
+   }catch(error){problem=error;}
+ }
+ throw problem||new Error('Kein passender Fall erzeugt.');
+}
+async function requestCloudCase(topic,avoid){
  if(!state.cloudUrl||!state.cloudCode)throw new Error('Bitte verbinde unter KI-Modus zuerst deinen Cloudflare Worker.');
  const url=validateCloudUrl(state.cloudUrl);
- const payload={role:state.training.role,difficulty:state.training.difficulty,topic:state.training.caseTopic,topicTitle:D.lessons[state.training.caseTopic].title,
+ const payload={role:state.training.role,difficulty:state.training.difficulty,topic,topicTitle:D.lessons[topic].title,
    hidden:state.mode==='hidden',focus:state.currentFocus||'',nonce:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),
-   avoid:state.progress.slice(0,5).map(p=>p.scenarioName||'').filter(Boolean)};
+   avoid:avoid.slice(0,15),guidance:'Thema '+D.lessons[topic].title+' muss zentral sein. '+LEVEL_POLICY[state.training.difficulty]+' Vermeide gleiche Akteure, Ereignisorte und Verläufe. Lege ein plausibles Ende und mögliche Wendepunkte an.'};
  const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(100000)});
  let data={};try{data=await response.json()}catch{}
  if(!response.ok)throw new Error(data.error||'Fallerstellung fehlgeschlagen (HTTP '+response.status+').');
@@ -218,7 +274,8 @@ async function cloudCall(mode){
  if(!state.cloudUrl || !state.cloudCode)throw new Error('Öffne KI-Modus und verbinde erst den Cloudflare Worker samt Zugangscode.');
  const s=cur(),tr=state.training;
  const url=validateCloudUrl(state.cloudUrl);
- const payload={mode, role:tr.role,difficulty:tr.difficulty,hidden:tr.mode==='hidden',setting:[s.setup[tr.role],s.observations||'',s.known?.join('; ')||'',s.prior?.join('; ')||'',s.scene].join('\n'),secret:s.secret,extra:s.region+'; '+(tr.privacyOpen?'Einzelgespräch ermöglicht.':'Einzelgespräch nicht bestätigt.')+'; Fokus: '+(tr.focus||'offen'), turns:state.turns.slice(-24)};
+ const guidance=mode==='simulation'?simulationPolicy(tr):'';
+ const payload={mode,role:tr.role,difficulty:tr.difficulty,hidden:tr.mode==='hidden',setting:[s.setup[tr.role],s.observations||'',s.known?.join('; ')||'',s.prior?.join('; ')||'',s.scene,guidance].filter(Boolean).join('\n'),secret:s.secret,extra:s.region+'; '+(tr.privacyOpen?'Einzelgespräch ermöglicht.':'Einzelgespräch nicht bestätigt.')+'; Fokus: '+(tr.focus||'offen')+'; Thema: '+(D.lessons[tr.caseTopic]?.title||tr.caseTopic),guidance,turns:state.turns.slice(-24)};
  const res=await fetch(url+'/generate',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(75000)});
  let data={};try{data=await res.json()}catch{}
  if(!res.ok)throw new Error(data.error||'Cloud-KI meldet HTTP '+res.status);
@@ -252,19 +309,20 @@ function showPlay(){
  <div class="scene"><span class="eyebrow">LAGEMELDUNG · WAS DU VOR EINTREFFEN WEISST</span><p class="brieftext">${esc(s.setup[tr.role])}</p></div>
  ${s.known?.length?`<div class="briefing-card"><h3>Situation bei deinem Eintreffen</h3><p class="brieftext">${esc(s.observations)}</p><h4>Gesicherte Informationen</h4><ul>${s.known.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>${s.prior.length?`<h4>Was bisher gesagt und getan wurde</h4><ol>${s.prior.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''}<p class="briefing-note">Weitere Informationen musst du im Verlauf selbst erfragen. Verborgene Hintergründe werden nicht vorweggenommen.</p></div>`:''}
  <div class="message-feed" aria-live="polite">${state.turns.map(t=>`<div class="bubble ${t.who==='user'?'user':'person'}"><span class="who">${t.who==='user'?'DU · '+D.roles[tr.role].name:'BETROFFENE / EINSATZUMFELD'}</span><p>${esc(t.text)}</p></div>`).join('')}${state.busy?'<div class="bubble person"><span class="who">SIMULATION</span><span class="loader"></span> Antwort wird formuliert …</div>':''}</div>
- <form class="composer" id="chatForm"><label class="fieldset-title" for="reply">Was sagst oder tust du?</label><textarea id="reply" name="reply" ${state.busy?'disabled':''} placeholder="Zum Beispiel: Ich stelle mich vor ... / Ich spreche mit der Einsatzleitung ..." maxlength="2000" required>${esc(state.failedDraft||'')}</textarea><div class="actions"><span class="tiny-hint">Enter = senden · Shift+Enter = Zeilenumbruch<br>Schreibe Handlungen genauso wie gesprochene Sätze.</span><button class="primary" type="submit" ${state.busy?'disabled':''}>${state.busy?'Antwort läuft …':'Antwort senden ↗'}</button></div></form>
- <hr class="section-rule"><div class="actions"><button class="secondary" data-action="finish" ${state.busy?'disabled':''}>Fall beenden & auswerten</button><button class="textbtn" data-action="reset">Fall abbrechen</button></div></div>
+ ${tr.outcome?`<div class="callout warm"><strong>Die Einsatzsituation ist beendet.</strong> Öffne jetzt die Nachbesprechung.</div>`:`<form class="composer" id="chatForm"><label class="fieldset-title" for="reply">Was sagst oder tust du?</label><textarea id="reply" name="reply" ${state.busy?'disabled':''} placeholder="Zum Beispiel: Ich stelle mich vor ... / Ich spreche mit der Einsatzleitung ..." maxlength="2000" required>${esc(state.failedDraft||'')}</textarea><div class="actions"><span class="tiny-hint">Enter = senden · Shift+Enter = Zeilenumbruch<br>Schreibe Handlungen genauso wie gesprochene Sätze.</span><button class="primary" type="submit" ${state.busy?'disabled':''}>${state.busy?'Antwort läuft …':'Antwort senden ↗'}</button></div></form>`}
+ <hr class="section-rule"><div class="actions"><button class="secondary" data-action="finish" ${state.busy?'disabled':''}>${tr.outcome?"Zur Nachbesprechung":"Fall beenden & auswerten"}</button><button class="textbtn" data-action="reset">Fall abbrechen</button></div></div>
  <aside class="side-note"><span class="eyebrow">DEINE EINSATZKARTE</span><h3>Aktuelle Informationen</h3><div class="label-row"><span>Organisation</span><b>${esc(D.roles[tr.role].short)}</b></div><div class="label-row"><span>Schwierigkeit</span><b>${tr.difficulty}/5</b></div><div class="label-row"><span>Verlauf</span><b>${tr.turn} Eingaben</b></div><div class="label-row"><span>Trainingsmodus</span><b>${tr.mode==='hidden'?'Verdeckt':'Themenbezogen'}</b></div><p class="small muted" style="margin-top:16px">${esc(D.roles[tr.role].brief)}</p><div class="callout warm"><strong>Wichtig:</strong> Keine versteckten Hinweise, keine vorzeitige Bewertung. Du erfährst erst im Feedback, welche Schwerpunkte tatsächlich hinter der Lage steckten.</div></aside></div>`);
  const ta=root.querySelector('#reply');if(ta)ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();root.querySelector('#chatForm').requestSubmit();}});
 }
 async function send(form){
- if(state.busy)return;
+ if(state.busy||state.training.outcome)return;
  const txt=form.elements.reply.value.trim();if(!txt)return;
- const snap={turn:state.training.turn,signals:{...state.training.signals},privacyOpen:state.training.privacyOpen,privateAttempt:state.training.privateAttempt,seenRisk:state.training.seenRisk,changes:[...state.training.sceneChanges]};
+ const snap={outcome:state.training.outcome,turn:state.training.turn,signals:{...state.training.signals},privacyOpen:state.training.privacyOpen,privateAttempt:state.training.privateAttempt,seenRisk:state.training.seenRisk,changes:[...state.training.sceneChanges]};
  state.failedDraft='';state.turns.push({who:'user',text:txt});state.busy=true;render();
  try{const tags=mark(txt);const reply=state.engine==='cloud'?await cloudReply(txt):state.engine==='ai'?await aiReply(txt):offlineReply(txt,tags);
- state.turns.push({who:'person',text:reply});state.message='';}
- catch(err){state.failedDraft=txt;state.turns.pop();state.training.turn=snap.turn;state.training.signals=snap.signals;state.training.privacyOpen=snap.privacyOpen;state.training.privateAttempt=snap.privateAttempt;state.training.seenRisk=snap.seenRisk;state.training.sceneChanges=snap.changes;state.message=(state.engine==='cloud'?'Cloud-KI nicht erreichbar: '+err.message+'. Öffne KI-Modus und prüfe Worker/Code.':state.engine==='ai'?'Lokale KI nicht erreichbar: '+err.message+'. Prüfe den lokalen Server.':'Antwort fehlgeschlagen: '+err.message);}
+ const parsed=state.engine==='cloud'?parseCloudEnding(reply):{text:reply,outcome:null};
+ state.turns.push({who:'person',text:parsed.text||reply});if(parsed.outcome)state.training.outcome=parsed.outcome;state.message='';}
+ catch(err){state.failedDraft=txt;state.turns.pop();state.training.outcome=snap.outcome;state.training.turn=snap.turn;state.training.signals=snap.signals;state.training.privacyOpen=snap.privacyOpen;state.training.privateAttempt=snap.privateAttempt;state.training.seenRisk=snap.seenRisk;state.training.sceneChanges=snap.changes;state.message=(state.engine==='cloud'?'Cloud-KI nicht erreichbar: '+err.message+'. Öffne KI-Modus und prüfe Worker/Code.':state.engine==='ai'?'Lokale KI nicht erreichbar: '+err.message+'. Prüfe den lokalen Server.':'Antwort fehlgeschlagen: '+err.message);}
  finally{state.busy=false;persistDraft();render();}
 }
 function evaluate(){
