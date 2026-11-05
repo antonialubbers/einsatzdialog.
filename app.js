@@ -108,6 +108,25 @@ function makeNew(){
 }
 function cur(){return state.generatedCase || D.scenarios.find(s=>s.id===state.training?.scenario)||D.scenarios[0]}
 const pickArray=(value,max=7)=>Array.isArray(value)?value.filter(x=>typeof x==='string').slice(0,max):[];
+function qualityIssues(raw) {
+ const opening=String(raw?.opening||"").trim();
+ const observations=String(raw?.observations||"");
+ const known=Array.isArray(raw?.known)?raw.known:[];
+ const prior=Array.isArray(raw?.prior)?raw.prior:[];
+ const info=[raw?.dispatch,observations,...known,...prior].join(" ");
+ const issues=[];
+ const takesOverPlayer=/(?:^|[.!?]\s+)(?:(?:die|der|eine|ein|ich)\s+)?(?:feuerwehrfrau|feuerwehrmann|einsatzkraft|gruppenführer(?:in)?|kommandant|einsatzleiter(?:in)?)\b[^.!?\n]{0,170}\b(?:betritt|spricht|erklärt|begrüßt|stellt sich|fragt|sagt|weist|befiehlt|fordert)\b/i.test(opening)
+   || /\b(?:kommandant|einsatzleiter(?:in)?|gruppenführer(?:in)?)\s*:\s*["„]/i.test(opening);
+ if(takesOverPlayer)issues.push("Die Einstiegsszene übernimmt die Rolle einer Einsatzkraft und nimmt den ersten Gesprächsschritt vorweg.");
+ if(opening.length>=75 && !/[.!?…]["'„“”»)\]]*$/.test(opening))issues.push("Die Einstiegsszene endet ohne Satzabschluss und könnte abgeschnitten sein.");
+ if(/\b(?:hausarztbericht|patientenakte|löschangriffsprotokoll|meldedaten\s+des\s+anrufers)\b/i.test(info))issues.push("Die Ausgangslage behauptet ohne nachvollziehbare Grundlage verfügbare Akten oder Berichte.");
+ if(/\b(?:sicherstell(?:ung|en)\s+(?:ihrer?|der)\s+(?:psychischen|psychologischen)\s+stabilität|psychologische\s+ersthilfe\s+(?:leisten|durchführen))\b/i.test(info))issues.push("Der Einsatzauftrag enthält eine nicht plausible psychologische Pflichtformulierung.");
+ const fire=/\b(?:flammen|brennt|brennen|offenes?\s+feuer|gaszufuhr)\b/i.test(observations);
+ const inHazard=/\b(?:bewohnerin|betroffene|frau|person)\b.{0,85}\b(?:in der küche|im brandraum|in der verrauchten wohnung)\b|\b(?:in der küche|im brandraum)\b.{0,90}\b(?:bewohnerin|betroffene|frau|person)\b/i.test(observations);
+ const conversationInHazard=/\b(?:betritt (?:die|den) (?:küche|brandraum)|in (?:die|der) küche\b.{0,80}\b(?:spricht|fragt|beruhigt))\b/i.test(opening);
+ if(fire && inHazard && conversationInHazard)issues.push("Die Simulation beginnt ein Betreuungsgespräch im offenbar noch ungesicherten Gefahrenbereich.");
+ return issues;
+}
 function validateGeneratedCase(raw){
  if(!raw||typeof raw!=='object')throw new Error('Die KI hat keine vollständige Einsatzlage geliefert.');
  for(const key of ['title','dispatch','observations','opening','background']){
@@ -116,6 +135,8 @@ function validateGeneratedCase(raw){
  const known=pickArray(raw.known,8),prior=pickArray(raw.prior,9),criteria=pickArray(raw.criteria,7).filter(k=>D.metrics[k]);
  if(known.length<2)throw new Error('Die KI hat nicht genügend gesicherte Anfangsinformationen geliefert.');
  if(state.training?.caseTopic==='handover'&&prior.length<3)throw new Error('Für die Übergabe fehlen die bisherigen Aussagen und Maßnahmen. Erneut versuchen.');
+ const qualityProblems=qualityIssues(raw);
+ if(qualityProblems.length)throw new Error('KI-Fall wegen Qualitätsmängeln zurückgewiesen: '+qualityProblems.join(' '));
  const description=[raw.dispatch.trim(),raw.observations.trim()].join('\n\n');
  return {id:'generiert-'+Date.now(),label:raw.title.slice(0,120),topic:state.training.caseTopic,region:(raw.location||'Fiktiver Einsatzort').slice(0,130),
    setup:Object.fromEntries(Object.keys(D.roles).map(role=>[role,raw.dispatch])),scene:raw.opening,alternate:raw.opening,
@@ -137,7 +158,7 @@ async function requestCloudCase(topic,avoid){
  const url=validateCloudUrl(state.cloudUrl);
  const payload={role:state.training.role,difficulty:state.training.difficulty,topic,topicTitle:D.lessons[topic].title,
    hidden:state.mode==='hidden',focus:state.currentFocus||'',nonce:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),
-   avoid:avoid.slice(0,15),guidance:"Fachlicher Realismus vor Originalität. Nur glaubwürdige Abläufe deutscher Einsatzkräfte, keine Fantasiebegriffe, frei verfügbaren Patientenakten, erfundenen Protokolle oder psychologischen Einsatzbefehle. Zeit, Etagen, Ort, Brandstatus und Zuständigkeiten müssen widerspruchsfrei sein. Bei akuter Gefahr zuerst Rettung/Eigensicherung; beginne das Gespräch nur bei realistisch möglichem Kontakt. Psychische Erste Hilfe ist keine Diagnose und nicht mit speziell qualifizierter PSNV gleichzusetzen. Der Spieler bestimmt seine Handlungen allein. Die erste Figur spricht natürlich und gibt weder Lehrhinweise noch die erwartete Strategie vor. Unaufgeregte Alltagsszene statt künstlicher Dramatik."};
+   avoid:avoid.slice(0,15),guidance:"WICHTIG: Keine Handlungen oder Dialoge der spielenden Einsatzkraft schreiben! 'opening' zeigt ausschließlich beobachtbares Verhalten und direkte Rede betroffener Personen (oder des Umfelds), keine Einsatzkräfte als Gesprächspartner, keine Tipps. Keine erfundenen Protokolle, Diagnosen, Hausarztberichte oder nicht belegten Patientendaten. Bei offener Brand- oder Gasgefahr zuerst Gefahrenabwehr und Rettung: Kontakt in sicherem Bereich; keine längeren Gespräche im Brandraum. Alarmierung, Anfahrt, Eintreffen, Etagen und Zeitablauf müssen plausibel sein. Keine Phantasie-Fachbegriffe oder vorweggenommene Lösung. Die Herausforderung liegt im Gespräch, nicht in absurden Ereignissen."};
  const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});
  let data={};try{data=await response.json()}catch{}
  if(!response.ok)throw new Error(data.error||'Fallerstellung fehlgeschlagen (HTTP '+response.status+').');
