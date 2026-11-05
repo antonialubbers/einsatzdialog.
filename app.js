@@ -137,7 +137,7 @@ async function requestCloudCase(topic,avoid){
  const url=validateCloudUrl(state.cloudUrl);
  const payload={role:state.training.role,difficulty:state.training.difficulty,topic,topicTitle:D.lessons[topic].title,
    hidden:state.mode==='hidden',focus:state.currentFocus||'',nonce:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),
-   avoid:avoid.slice(0,15),guidance:'Thema '+D.lessons[topic].title+' muss zentral sein. '+LEVEL_POLICY[state.training.difficulty]+' Vermeide gleiche Akteure, Ereignisorte und Verläufe. Lege ein plausibles Ende und mögliche Wendepunkte an.'};
+   avoid:avoid.slice(0,15),guidance:"Fachlicher Realismus vor Originalität. Nur glaubwürdige Abläufe deutscher Einsatzkräfte, keine Fantasiebegriffe, frei verfügbaren Patientenakten, erfundenen Protokolle oder psychologischen Einsatzbefehle. Zeit, Etagen, Ort, Brandstatus und Zuständigkeiten müssen widerspruchsfrei sein. Bei akuter Gefahr zuerst Rettung/Eigensicherung; beginne das Gespräch nur bei realistisch möglichem Kontakt. Psychische Erste Hilfe ist keine Diagnose und nicht mit speziell qualifizierter PSNV gleichzusetzen. Der Spieler bestimmt seine Handlungen allein. Die erste Figur spricht natürlich und gibt weder Lehrhinweise noch die erwartete Strategie vor. Unaufgeregte Alltagsszene statt künstlicher Dramatik."};
  const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});
  let data={};try{data=await response.json()}catch{}
  if(!response.ok)throw new Error(data.error||'Fallerstellung fehlgeschlagen (HTTP '+response.status+').');
