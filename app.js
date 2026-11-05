@@ -125,18 +125,12 @@ function validateGeneratedCase(raw){
 async function cloudCreateCase(){
  const topic=state.training.caseTopic;
  const avoid=[...recentGeneratedCases,...state.progress.slice(0,12).map(p=>p.scenarioName||'')].filter(Boolean);
- let problem;
- for(let attempt=0;attempt<3;attempt++){
-   try{
-     const raw=await requestCloudCase(topic,avoid);
-     const next=validateGeneratedCase(raw);
-     if(!topicFits(raw,topic))throw new Error('Der generierte Fall passt nicht zum gewählten Thema.');
-     if(avoid.some(name=>name.toLocaleLowerCase('de-DE').trim()===next.label.toLocaleLowerCase('de-DE').trim()))throw new Error('Der generierte Fall wiederholt einen früheren Fall.');
-     recentGeneratedCases.unshift(next.label);if(recentGeneratedCases.length>15)recentGeneratedCases.pop();
-     return next;
-   }catch(error){problem=error;}
- }
- throw problem||new Error('Kein passender Fall erzeugt.');
+ const raw=await requestCloudCase(topic,avoid);
+ const next=validateGeneratedCase(raw);
+ if(!topicFits(raw,topic))throw new Error('Der generierte Fall passt nicht zum gewählten Thema.');
+ if(avoid.some(name=>name.toLocaleLowerCase('de-DE').trim()===next.label.toLocaleLowerCase('de-DE').trim()))throw new Error('Der generierte Fall wiederholt einen früheren Fall.');
+ recentGeneratedCases.unshift(next.label);if(recentGeneratedCases.length>15)recentGeneratedCases.pop();
+ return next;
 }
 async function requestCloudCase(topic,avoid){
  if(!state.cloudUrl||!state.cloudCode)throw new Error('Bitte verbinde unter KI-Modus zuerst deinen Cloudflare Worker.');
@@ -144,10 +138,13 @@ async function requestCloudCase(topic,avoid){
  const payload={role:state.training.role,difficulty:state.training.difficulty,topic,topicTitle:D.lessons[topic].title,
    hidden:state.mode==='hidden',focus:state.currentFocus||'',nonce:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),
    avoid:avoid.slice(0,15),guidance:'Thema '+D.lessons[topic].title+' muss zentral sein. '+LEVEL_POLICY[state.training.difficulty]+' Vermeide gleiche Akteure, Ereignisorte und Verläufe. Lege ein plausibles Ende und mögliche Wendepunkte an.'};
- const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(100000)});
+ const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});
  let data={};try{data=await response.json()}catch{}
  if(!response.ok)throw new Error(data.error||'Fallerstellung fehlgeschlagen (HTTP '+response.status+').');
- return validateGeneratedCase(data.scenario);
+ if(!data.scenario || typeof data.scenario!=='object')throw new Error('Cloudflare lieferte keinen vollständigen Fall. Bitte Logs im Worker prüfen.');
+ // Die Worker-Antwort hier roh weiterreichen. Validierung und Umwandlung
+ // erfolgen genau einmal in cloudCreateCase().
+ return data.scenario;
 }
 function showLearn(){
  const ids=window.EINSATZDIALOG_CMS_LIBRARY_KEYS||['basics','psychology','stress','suicide','grief','conflict','safety','children','handover'];
@@ -170,7 +167,7 @@ async function begin(){
  if(state.engine==='cloud'){
    state.busy=true;state.screen='creating';render();
    try{state.generatedCase=await cloudCreateCase();state.training.scenario=state.generatedCase.id;}
-   catch(error){state.creationError=error?.message||'Unbekannter Fehler';state.screen='create-error';state.busy=false;render();return;}
+   catch(error){state.creationError=error?.name==='TimeoutError'?'Die Fallgenerierung hat das Zeitlimit von 65 Sekunden überschritten. Der KI-Anbieter antwortet zu langsam. Bitte Workers-AI-Einstellungen prüfen.':(error?.message||'Unbekannter Fehler');state.screen='create-error';state.busy=false;render();return;}
    state.busy=false;
  }
  const s=cur();let opening=s.generated?s.scene:(state.training.variant?s.alternate+'\n\n'+s.lines.intro:s.scene);
