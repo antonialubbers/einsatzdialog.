@@ -65,3 +65,17 @@ button,input,textarea,select{font-size:max(16px,1em)}
 
 /* 0.8: ausführliche Einsatzlage vor dem ersten Gespräch */
 .briefing-card{margin:16px 0 22px;padding:20px 22px;background:#f7f9f6;border:1px solid #d8e3da;border-radius:12px;line-height:1.65;color:#263b47}.briefing-card h3{margin:0 0 9px;font-size:1.2rem}.briefing-card h4{font-size:.9rem;margin:21px 0 7px}.briefing-card ul,.briefing-card ol{padding-left:23px;margin:8px 0}.briefing-card li{margin:0 0 7px}.brieftext{white-space:pre-line;line-height:1.7}.briefing-note{font-size:.81rem;color:#6d7c7a;border-top:1px solid #d6dfd8;padding-top:13px;margin-top:18px}.creating-stage{display:grid;justify-items:start;gap:16px;padding:30px 8px}.creating-stage .loader{width:28px;height:28px;border-width:3px}.creating-stage p{color:#63727d;margin:0}.topic-option-title small{font-weight:400}
+
+/* KI-Nachbesprechung: klare, responsiv lesbare Lernkarten */
+.ai-overall{margin:20px 0;padding:23px;border-radius:16px;background:var(--soft,#f0f4f7);border:1px solid rgba(50,70,88,.14)}
+.ai-overall h3{font-size:1.35rem;margin:12px 0 8px}.ai-overall p{font-size:1rem;line-height:1.8}
+.ai-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}
+.ai-card{min-width:0;overflow-wrap:anywhere}.ai-card h3{margin-top:10px;margin-bottom:17px}
+.ai-card p{line-height:1.75}.ai-card li{margin:0 0 9px;line-height:1.65}
+.ai-point+.ai-point{margin-top:18px;padding-top:18px;border-top:1px solid rgba(50,70,88,.14)}
+.ai-point h4{margin:0 0 9px;line-height:1.5}.ai-point .quote{margin:11px 0;overflow-wrap:anywhere}
+.ai-point .softbox{margin:11px 0 0}.ai-next{margin:20px 0}.ai-next .softbox{margin-top:13px}
+.ai-last{margin:15px 0}.ai-last summary,.ai-history summary{cursor:pointer;font-weight:650}
+.ai-disclaimer{margin:18px 0}.ai-loading{margin-top:20px}
+.ai-history{margin:12px 0}.ai-history .ai-grid{margin-top:15px}
+@media(max-width:760px){.ai-grid{grid-template-columns:1fr}.ai-overall{padding:17px}.ai-card{padding:16px}}
