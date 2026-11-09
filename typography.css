@@ -1,0 +1,23 @@
+/* EINSATZDIALOG · Typografie v1 · selbst gehostete Open-Source-Schriften
+   Source Sans 3 + Source Serif 4 (SIL Open Font License 1.1)
+   Lizenzen: https://github.com/google/fonts/tree/main/ofl/sourcesans3
+             https://github.com/google/fonts/tree/main/ofl/sourceserif4 */
+@font-face{font-family:"ED Source Sans 3";src:url("./fonts/source-sans-3-latin-400-normal.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"ED Source Sans 3";src:url("./fonts/source-sans-3-latin-600-normal.woff2") format("woff2");font-style:normal;font-weight:600;font-display:swap}
+@font-face{font-family:"ED Source Sans 3";src:url("./fonts/source-sans-3-latin-700-normal.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"ED Source Serif 4";src:url("./fonts/source-serif-4-latin-600-normal.woff2") format("woff2");font-style:normal;font-weight:600;font-display:swap}
+@font-face{font-family:"ED Source Serif 4";src:url("./fonts/source-serif-4-latin-700-normal.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
+:root{--ed-font-body:"ED Source Sans 3", "Segoe UI", Arial, sans-serif;--ed-font-heading:"ED Source Serif 4", Georgia, "Times New Roman", serif}
+html{font-family:var(--ed-font-body);font-size:16px}
+body{font-family:var(--ed-font-body);font-size:16px;line-height:1.6;font-weight:400}
+button,input,select,textarea,option{font-family:var(--ed-font-body);font-weight:inherit}
+h1,h2,h3,h4,h5,h6{font-family:var(--ed-font-heading);font-weight:600;letter-spacing:-.015em;line-height:1.22;overflow-wrap:break-word}
+h1{font-weight:700}
+.brand,.brand strong,.topbar .brand,.top strong,.bar strong,.preview-top strong,.preview-brand,.eyebrow,.label-row,.top-pill,nav,.sidebar,.step,.field-group>label,.fieldset-title,.preview-caption{font-family:var(--ed-font-body)}
+button,.primary,.secondary,.textbtn,.top-link{font-weight:600}
+.learning-detail .lesson-primary,.flip-card .lesson-primary,.briefing-card,.message-feed .bubble,.bubble p,.ai-overall p,.ai-card p{font-size:1.0625rem;line-height:1.6}
+.learning-detail .lesson-primary,.flip-card .lesson-primary,.ai-overall p,.ai-card p{max-width:72ch}
+.learning-detail .lesson-primary,.flip-card .lesson-primary{font-weight:400}
+.learning-detail h2,.learning-detail h3,.flip-card h3,.briefing-card h3,.ai-overall h3,.ai-card h3{font-family:var(--ed-font-heading);font-weight:600;letter-spacing:-.01em}
+.preview-area h3,.preview-intro h2,.canvas-intro h2,.preview-card h3{font-family:var(--ed-font-heading);font-weight:600}
+@media(max-width:700px){body{font-size:16px;line-height:1.55}.learning-detail .lesson-primary,.flip-card .lesson-primary,.briefing-card,.message-feed .bubble,.bubble p,.ai-overall p,.ai-card p{font-size:1rem;line-height:1.6}}
