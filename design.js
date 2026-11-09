@@ -4,7 +4,8 @@
 const $=id=>document.getElementById(id);
 const SESSION='ed_supa_session_v1',CFG='ed_supa_pub_config_v1';
 const COLOR_NAMES={navy:'Kopfzeile & Schaltflächen',accent:'Akzentfarbe',paper:'Seitenhintergrund',card:'Kartenhintergrund',coral:'Markierungen',ink:'Textfarbe'};
-const COLOR_DEFAULTS={navy:'#192a42',accent:'#2f695d',paper:'#f5f3ee',card:'#fffdfa',coral:'#bb6655',ink:'#152338'};
+const COLOR_DEFAULTS={navy:'#102535',accent:'#a82e38',paper:'#f3f6f8',card:'#ffffff',coral:'#a82e38',ink:'#102535'};
+const COLOR_LEGACY={navy:'#192a42',accent:'#2f695d',paper:'#f5f3ee',card:'#fffdfa',coral:'#bb6655',ink:'#152338'};
 const NAV_DEFAULTS=[{id:'library',label:'Wissen',visible:true},{id:'history',label:'Fortschritt',visible:true},{id:'install',label:'App installieren',visible:true},{id:'settings',label:'KI-Modus',visible:true}];
 const DEFAULT={colors:COLOR_DEFAULTS,layout:{width:'standard',showSidebar:true},text:{brand:'EINSATZDIALOG',headerTag:'FIKTIVE ÜBUNGSFÄLLE',homeHeadline:'',showCopyright:true,footerCopyright:'© Einsatzdialog · Prototyp · Version 0.9 · 10/2026',footerRight:'Als Web-App installierbar · Quellenbasiert · Fiktive Fälle',guidedLabel:'Thema auswählen',hiddenLabel:'Überraschungsfall'},navigation:NAV_DEFAULTS};
 const cleanHex=v=>/^#[\da-f]{6}$/i.test(v||'')?v:null;
@@ -75,7 +76,7 @@ function normalize(raw){
  // Apply valid stored order, then append any unknown/missing default links.
  const order=[...new Set([...nav.map(x=>x?.id).filter(id=>NAV_DEFAULTS.some(n=>n.id===id)),...navArr.map(x=>x.id)])];
  return {
-   colors:Object.fromEntries(Object.keys(COLOR_NAMES).map(k=>[k,cleanHex(r.colors?.[k])||COLOR_DEFAULTS[k]])),
+   colors:Object.fromEntries(Object.keys(COLOR_NAMES).map(k=>{const picked=cleanHex(r.colors?.[k]);return [k,!picked||picked.toLowerCase()===COLOR_LEGACY[k]?COLOR_DEFAULTS[k]:picked];})),
    layout:{width:['standard','wide','compact'].includes(r.layout?.width)?r.layout.width:'standard',showSidebar:r.layout?.showSidebar!==false},
    text:{...DEFAULT.text,...r.text},
    navigation:order.map(id=>navArr.find(n=>n.id===id))

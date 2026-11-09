@@ -7,6 +7,9 @@
  const valid=/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) && /^sb_publishable_[a-z0-9_-]+$/i.test(key);
  const DEFAULT_NAV=['library','history','install','settings'];
  const COLORS=['navy','accent','paper','card','coral','ink'];
+ // Automatische Übernahme der früheren Standardpalette. Eigene Farben bleiben editierbar.
+ const LEGACY={navy:'#192a42',accent:'#2f695d',paper:'#f5f3ee',card:'#fffdfa',coral:'#bb6655',ink:'#152338'};
+ const CURRENT={navy:'#102535',accent:'#a82e38',paper:'#f3f6f8',card:'#ffffff',coral:'#a82e38',ink:'#102535'};
  const MAX_LABEL=65;
  const html=document.documentElement;
  let config=null, root=null, observer=null, pending=false;
@@ -18,7 +21,7 @@
    const colors=config.colors||{};
    for(const k of COLORS){
      const c=saneColor(colors[k]);
-     if(c)html.style.setProperty('--'+k,c);
+     if(c)html.style.setProperty('--'+k,c.toLowerCase()===LEGACY[k]?CURRENT[k]:c);
    }
    const width=['wide','compact'].includes(config.layout?.width)?config.layout.width:'standard';
    html.classList.toggle('ed-layout-wide',width==='wide');
@@ -42,8 +45,10 @@
    }
    if(typeof t.headerTag==='string')writeText(root.querySelector('.top-pill'),saneText(t.headerTag,85));
    const headline=saneText(t.homeHeadline,90);
-   if(headline && root.querySelector('.intro-header .eyebrow')?.textContent?.includes('TRAINING')){
-       writeText(root.querySelector('.intro-header h1'),headline);
+   if(headline){
+       const target=root.querySelector('.ed-overview .ed-hero h1')||
+         (root.querySelector('.intro-header .eyebrow')?.textContent?.includes('TRAINING')?root.querySelector('.intro-header h1'):null);
+       if(target)writeText(target,headline);
    }
    const footer=root.querySelector('.footer');
    if(footer){

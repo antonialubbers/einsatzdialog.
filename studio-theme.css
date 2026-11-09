@@ -1,0 +1,27 @@
+/* Gemeinsames Erscheinungsbild der internen Redaktions- und Layoutwerkzeuge.
+   Keine Änderungen an Speicherung, Authentifizierung oder Editierfunktionen. */
+:root{
+ --navy:#102535;--ink:#102535;--paper:#f3f6f8;--surface:#f3f6f8;
+ --card:#fff;--muted:#5d6e7b;--line:#d8e1e7;--border:#d8e1e7;
+ --accent:#a82e38;--coral:#a82e38;
+}
+body{background:#f3f6f8;color:#102535}
+:where(.topbar,.top,.bar){background:#102535;color:#fff}
+:where(.topbar,.top,.bar) a{color:#e5edf4}
+:where(.topbar,.top,.bar) strong{font-family:var(--ed-font-body)}
+:where(.panel,.center-pane,.workspace,.card,.preview-wrap,.canvas-panel,.preview-screen,.notice,.sidebar,.editor-panel,.edit-card,.card-editor){
+ border-color:#d8e1e7;
+}
+:where(.center-pane,.panel,.notice,.preview-wrap,.canvas-panel){background:#fff;box-shadow:0 10px 35px rgba(16,37,53,.045)}
+:where(.primary,button.primary,.btn.primary,.button.primary){
+ background:#a82e38;border-color:#a82e38;color:#fff;
+}
+:where(.primary,button.primary,.btn.primary,.button.primary):hover{
+ background:#85232d;border-color:#85232d;
+}
+:where(button,input,select,textarea){font-family:var(--ed-font-body)}
+:where(input,textarea,select){border-color:#b8c9d4;background:#fff;color:#102535}
+:where(.muted,.hint,.sub){color:#5d6e7b}
+:where(.eyebrow){color:#a82e38}
+:where(.preview,.preview-area,.preview-card){--paper:#f3f6f8;--card:#fff;--ink:#102535}
+:where(button,input,select,textarea,a):focus-visible{outline:3px solid #a82e38;outline-offset:3px}
