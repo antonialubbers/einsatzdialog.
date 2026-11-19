@@ -181,7 +181,7 @@ async function requestCloudCase(topic,avoid){
  const payload={role:state.training.role,difficulty:state.training.difficulty,topic,topicTitle:D.lessons[topic].title,
    hidden:state.mode==='hidden',focus:state.currentFocus||'',nonce:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),
    avoid:avoid.slice(0,15),guidance:'Die KI spielt nur die betroffene Person. Im Einstieg keine sprechenden Einsatzkräfte, keine bereits getroffenen Handlungen des Spielers. Nur relevante Informationen; keine ausgedachten Minutenangaben, Baustellenlärm-Details, Protokollnummern, Diagnosen oder Fantasie-Alarmierungen.'};
- const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});
+ const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(125000)});
  let data={};try{data=await response.json()}catch{}
  if(!response.ok)throw new Error(data.error||'Fallerstellung fehlgeschlagen (HTTP '+response.status+').');
  if(!data.scenario || typeof data.scenario!=='object')throw new Error('Cloudflare lieferte keinen vollständigen Fall. Bitte Logs im Worker prüfen.');
