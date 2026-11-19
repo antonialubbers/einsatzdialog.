@@ -39,18 +39,20 @@ function topicFits(raw,key){
  if(!TOPIC_CHECKS[key])return true;
  return TOPIC_CHECKS[key].test([raw.title,raw.dispatch,raw.observations,raw.opening,raw.background,...pickArray(raw.known),...pickArray(raw.prior)].join(' ').toLocaleLowerCase('de-DE'));
 }
+function roleDrift(text){
+ const s=String(text||"").trim().replace(/^\*+/,"").slice(0,500);
+ return /^(?:polizei|polizist(?:in)?|feuerwehr|feuerwehrfrau|feuerwehrmann|notfallsanitäter(?:in)?|rettungsdienst|einsatzleiter|gruppenführer|kommandant)\s*[:\-„"]/i.test(s)
+ || /(?:ich bin|ich heiße|mein name ist|hier spricht)\s+[^.!?\n]{0,65}\b(?:polizist|polizistin|feuerwehr|rettungsdienst|notfallsanitäter|thw|einsatzleiter)/i.test(s)
+ || /^(?:die|der|ein|eine)\s+(?:polizistin?|feuerwehrfrau|feuerwehrmann|einsatzkraft|einsatzleiter|kommandant)\b[^.!?\n]{0,85}\b(?:betritt|spricht|sagt|fragt|erklärt|begrüßt)\b/i.test(s);
+}
 function simulationPolicy(tr){
  return [
- 'Zusätzliche verbindliche Regeln für die Rollenspiel-Simulation, niemals als Hinweis ausgeben:',
- 'Das zentrale Thema lautet '+(D.lessons[tr.caseTopic]?.title||tr.caseTopic)+'. Es bleibt der Kern des Falles; Nebenthemen dürfen es nicht verdrängen.',
+ 'Die SPIELENDE PERSON ist die Einsatzkraft. Die KI antwortet ausschließlich als BETROFFENE PERSON und niemals als Polizist, Feuerwehrmitglied, Rettungsdienst, Einsatzleiter, Trainer oder Erzähler.',
+ 'Keine Worte, Maßnahmen oder Entscheidungen der spielenden Einsatzkraft selbst ausführen oder erfinden.',
+ 'Keine belanglosen Angaben wie Baustellenlärm, exakte Uhrzeiten oder erfundene Protokolle; nur unmittelbar relevante Veränderungen.',
  'Schwierigkeit '+tr.difficulty+'/5: '+LEVEL_POLICY[tr.difficulty],
- 'Reagiere auf SINN UND KONTEXT der letzten Handlung, nicht nur auf Schlüsselwörter. Gute Gesprächsführung bewirkt auf niedrigen Stufen erkennbaren Fortschritt.',
- 'Auch praktische und nonverbale Handlungen zählen: Decke, Getränk, Augenhöhe, Helm abnehmen, Abstand, Rückzug, PSNV-Übergabe. Sicherheit und Einsatzkontext beachten.',
- 'Wendepunkte und neue Hindernisse brauchen vorher nachvollziehbar angelegte Ursachen. Keine willkürlichen Eskalationen oder magischen Lösungen.',
- 'Vermeide Antwortschleifen. Entwickle eine kausale Handlung mit mehreren möglichen Ergebnissen: gelungen, teilweise gelungen, eskaliert, aus Sicherheitsgründen abgebrochen.',
- 'Nutzerbeitrag Nr. '+tr.turn+'. Ein plausibles Ende ist normalerweise nach etwa 5-12 Beiträgen möglich; nie allein nach Turn-Zahl erzwingen.',
- 'Wenn UND NUR wenn die Einsatzsituation tatsächlich beendet ist, füge als letzte Zeile GENAU EINEN Marker an: [[EINSATZDIALOG_ENDE:erfolg]], [[EINSATZDIALOG_ENDE:teilweise]], [[EINSATZDIALOG_ENDE:eskaliert]] oder [[EINSATZDIALOG_ENDE:abbruch]]. Während des laufenden Gesprächs keinen Marker ausgeben.',
- 'Nur beobachtbare Szenen und wörtliche Rede; keine Trainerhinweise mitten im Fall.'
+ 'Einfache Fälle reagieren zugänglich auf angemessene Kommunikation; schwierige Fälle nur mit plausiblen Hindernissen.',
+ 'Ist die Situation nachvollziehbar abgeschlossen, den EINSATZDIALOG_ENDE-Marker ausgeben; sonst keinen Marker.'
  ].join('\n');
 }
 function parseCloudEnding(reply){
@@ -156,6 +158,7 @@ function validateGeneratedCase(raw){
  const known=pickArray(raw.known,8),prior=pickArray(raw.prior,9),criteria=pickArray(raw.criteria,7).filter(k=>D.metrics[k]);
  if(known.length<2)throw new Error('Die KI hat nicht genügend gesicherte Anfangsinformationen geliefert.');
  if(state.training?.caseTopic==='handover'&&prior.length<3)throw new Error('Für die Übergabe fehlen die bisherigen Aussagen und Maßnahmen. Erneut versuchen.');
+ if(roleDrift(raw.opening))throw new Error('Die KI hat eine Einsatzkraft statt der betroffenen Person sprechen lassen. Fall zurückgewiesen.');
  const description=[raw.dispatch.trim(),raw.observations.trim()].join('\n\n');
  return {id:'generiert-'+Date.now(),label:raw.title.slice(0,120),topic:state.training.caseTopic,region:(raw.location||'Fiktiver Einsatzort').slice(0,130),
    setup:Object.fromEntries(Object.keys(D.roles).map(role=>[role,raw.dispatch])),scene:raw.opening,alternate:raw.opening,
@@ -177,11 +180,12 @@ async function requestCloudCase(topic,avoid){
  const url=validateCloudUrl(state.cloudUrl);
  const payload={role:state.training.role,difficulty:state.training.difficulty,topic,topicTitle:D.lessons[topic].title,
    hidden:state.mode==='hidden',focus:state.currentFocus||'',nonce:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),
-   avoid:avoid.slice(0,15),guidance:"Fachlicher Realismus vor Originalität. Nur glaubwürdige Abläufe deutscher Einsatzkräfte, keine Fantasiebegriffe, frei verfügbaren Patientenakten, erfundenen Protokolle oder psychologischen Einsatzbefehle. Zeit, Etagen, Ort, Brandstatus und Zuständigkeiten müssen widerspruchsfrei sein. Bei akuter Gefahr zuerst Rettung/Eigensicherung; beginne das Gespräch nur bei realistisch möglichem Kontakt. Psychische Erste Hilfe ist keine Diagnose und nicht mit speziell qualifizierter PSNV gleichzusetzen. Der Spieler bestimmt seine Handlungen allein. Die erste Figur spricht natürlich und gibt weder Lehrhinweise noch die erwartete Strategie vor. Unaufgeregte Alltagsszene statt künstlicher Dramatik."};
+   avoid:avoid.slice(0,15),guidance:'Die KI spielt nur die betroffene Person. Im Einstieg keine sprechenden Einsatzkräfte, keine bereits getroffenen Handlungen des Spielers. Nur relevante Informationen; keine ausgedachten Minutenangaben, Baustellenlärm-Details, Protokollnummern, Diagnosen oder Fantasie-Alarmierungen.'};
  const response=await fetch(url+'/scenario',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});
  let data={};try{data=await response.json()}catch{}
  if(!response.ok)throw new Error(data.error||'Fallerstellung fehlgeschlagen (HTTP '+response.status+').');
  if(!data.scenario || typeof data.scenario!=='object')throw new Error('Cloudflare lieferte keinen vollständigen Fall. Bitte Logs im Worker prüfen.');
+ if(['gemini','cloudflare','groq','claude','openai'].includes(data.provider))state.cloudProvider=data.provider;
  // Die Worker-Antwort hier roh weiterreichen. Validierung und Umwandlung
  // erfolgen genau einmal in cloudCreateCase().
  return data.scenario;
@@ -312,11 +316,14 @@ async function cloudCall(mode){
  const s=cur(),tr=state.training;
  const url=validateCloudUrl(state.cloudUrl);
  const guidance=mode==='simulation'?simulationPolicy(tr):'';
- const payload={mode,role:tr.role,difficulty:tr.difficulty,hidden:tr.mode==='hidden',setting:[s.setup[tr.role],s.observations||'',s.known?.join('; ')||'',s.prior?.join('; ')||'',s.scene,guidance].filter(Boolean).join('\n'),secret:s.secret,extra:s.region+'; '+(tr.privacyOpen?'Einzelgespräch ermöglicht.':'Einzelgespräch nicht bestätigt.')+'; Fokus: '+(tr.focus||'offen')+'; Thema: '+(D.lessons[tr.caseTopic]?.title||tr.caseTopic),guidance,turns:state.turns.slice(-24)};
+ const payload={mode,role:tr.role,difficulty:tr.difficulty,hidden:tr.mode==='hidden',setting:[s.setup[tr.role],s.observations||'',s.known?.join('; ')||'',s.prior?.join('; ')||'',s.scene].filter(Boolean).join('\n'),secret:s.secret,extra:s.region+'; '+(tr.privacyOpen?'Einzelgespräch ermöglicht.':'Einzelgespräch nicht bestätigt.')+'; Fokus: '+(tr.focus||'offen')+'; Thema: '+(D.lessons[tr.caseTopic]?.title||tr.caseTopic),guidance,turns:state.turns.slice(mode==='review'?-24:-18)};
  const res=await fetch(url+'/generate',{method:'POST',headers:{'Content-Type':'application/json','X-Einsatzdialog-Access':state.cloudCode},body:JSON.stringify(payload),signal:AbortSignal.timeout(75000)});
  let data={};try{data=await res.json()}catch{}
  if(!res.ok)throw new Error(data.error||'Cloud-KI meldet HTTP '+res.status);
  if(typeof data.text!=='string'||!data.text.trim())throw new Error('Leere KI-Antwort');
+ if(mode==='simulation'&&roleDrift(data.text))throw new Error('Die KI ist unzulässig in die Rolle einer Einsatzkraft gewechselt. Antwort zurückgehalten.');
+ if(['gemini','cloudflare','groq','claude','openai'].includes(data.provider))state.cloudProvider=data.provider;
+ if(tr){if(mode==='review')tr.reviewProvider=data.provider;else tr.lastProvider=data.provider;}
  return data.text.trim().slice(0,mode==='review'?9600:2800);
 }
 async function cloudReply(input){
@@ -333,7 +340,7 @@ async function checkCloud(){
    const response=await fetch(url+'/health',{method:'POST',headers:{'X-Einsatzdialog-Access':state.cloudCode},signal:AbortSignal.timeout(12000)});
    let data={};try{data=await response.json()}catch{}
    if(!response.ok||!data.ok)throw new Error(data.error||'Worker antwortet nicht');
-   state.cloudAvailable=true;state.cloudProvider=['openai','gemini','cloudflare'].includes(data.provider)?data.provider:'gemini';state.cloudStatus='Verbunden mit '+({openai:'OpenAI',gemini:'Gemini',cloudflare:'Cloudflare Workers AI'}[state.cloudProvider])+' · '+data.model;state.engine='cloud';
+   state.cloudAvailable=true;state.cloudProvider=['openai','gemini','cloudflare','groq','claude'].includes(data.provider)?data.provider:'gemini';state.cloudStatus='Verbunden mit '+({openai:'OpenAI',gemini:'Gemini',cloudflare:'Cloudflare Workers AI',groq:'Groq',claude:'Claude'}[state.cloudProvider])+' · '+data.model;state.engine='cloud';
    try{localStorage.setItem(CLOUD_URL_STORE,url);sessionStorage.setItem(CLOUD_CODE_STORE,state.cloudCode)}catch{}
  }catch(error){state.cloudAvailable=false;state.cloudStatus='Nicht verbunden: '+(error?.message||'Fehler');}
  render();
@@ -342,7 +349,7 @@ function persistDraft(){try{sessionStorage.setItem('einsatzdialog-draft',JSON.st
 function showPlay(){
  const s=cur(),tr=state.training;
  page('play',`<div class="intro-header" style="margin-bottom:13px"><span class="eyebrow">LIVE-SIMULATION / 03</span><h2 style="margin:5px 0">${tr.mode==='hidden'?'Neue Einsatzlage':esc(s.label)}</h2><span class="muted small">${esc(s.region)} · ${esc(D.roles[tr.role].name)} · Stufe ${tr.difficulty} / 5</span></div>
- <div class="case-shell"><div class="sheet"><div class="caseboard"><div><span class="toptag">${state.engine==='cloud'?'CLOUD-KI · '+({openai:'OPENAI',gemini:'GEMINI',cloudflare:'CLOUDFLARE AI'}[state.cloudProvider]||'KI'):state.engine==='ai'?'LOKALE KI':'OFFLINE · REGELBASIERT'}</span><h3 style="margin:10px 0 2px">Einsatzgespräch</h3><p class="small muted" style="margin:0">Du entscheidest über Worte und Maßnahmen. ${state.engine==='offline'?'Der Offline-Modus hat begrenzte Dialogzweige.':'Die KI reagiert auf den tatsächlichen Gesprächsverlauf.'}</p></div><span class="tiny-hint mono">${tr.turn} BEITRÄGE</span></div>
+ <div class="case-shell"><div class="sheet"><div class="caseboard"><div><span class="toptag">${state.engine==='cloud'?'CLOUD-KI · '+({openai:'OPENAI',gemini:'GEMINI',cloudflare:'CLOUDFLARE AI',groq:'GROQ',claude:'CLAUDE'}[state.cloudProvider]||'KI'):state.engine==='ai'?'LOKALE KI':'OFFLINE · REGELBASIERT'}</span><h3 style="margin:10px 0 2px">Einsatzgespräch</h3><p class="small muted" style="margin:0">Du entscheidest über Worte und Maßnahmen. ${state.engine==='offline'?'Der Offline-Modus hat begrenzte Dialogzweige.':'Die KI reagiert auf den tatsächlichen Gesprächsverlauf.'}</p></div><span class="tiny-hint mono">${tr.turn} BEITRÄGE</span></div>
  <div class="scene"><span class="eyebrow">LAGEMELDUNG · WAS DU VOR EINTREFFEN WEISST</span><p class="brieftext">${esc(s.setup[tr.role])}</p></div>
  ${s.known?.length?`<div class="briefing-card"><h3>Situation bei deinem Eintreffen</h3><p class="brieftext">${esc(s.observations)}</p><h4>Gesicherte Informationen</h4><ul>${s.known.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>${s.prior.length?`<h4>Was bisher gesagt und getan wurde</h4><ol>${s.prior.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''}<p class="briefing-note">Weitere Informationen musst du im Verlauf selbst erfragen. Verborgene Hintergründe werden nicht vorweggenommen.</p></div>`:''}
  <div class="message-feed" aria-live="polite">${state.turns.map(t=>`<div class="bubble ${t.who==='user'?'user':'person'}"><span class="who">${t.who==='user'?'DU · '+D.roles[tr.role].name:'BETROFFENE / EINSATZUMFELD'}</span><p>${esc(t.text)}</p></div>`).join('')}${state.busy?'<div class="bubble person"><span class="who">SIMULATION</span><span class="loader"></span> Antwort wird formuliert …</div>':''}</div>
@@ -451,8 +458,8 @@ async function makeAIReview(){
   if(state.training===tr){state.reviewBusy=false;saveStore(state.progress);persistDraft();render();}
  }
 }
-function showSettings(){page('settings',`<div class="intro-header"><span class="eyebrow">KI-EINSTELLUNGEN</span><h1>Mit echter KI trainieren.</h1><p>Deine GitHub-Web-App kann über einen Cloudflare Worker mit Gemini oder der OpenAI-API sprechen. Die Modellwahl erfolgt in Cloudflare. Ohne Verbindung bleibt der Offline-Modus verfügbar.</p></div>
- <div class="sheet"><div class="field-group"><span class="fieldset-title">Antwortmodus</span><div class="segment"><button data-action="engine" data-value="offline" class="${state.engine==='offline'?'selected':''}">Offline · regelbasiert</button><button data-action="engine" data-value="cloud" class="${state.engine==='cloud'?'selected':''}">Cloud-KI · Cloudflare / Gemini / OpenAI</button>${!HOSTED_PWA?`<button data-action="engine" data-value="ai" class="${state.engine==='ai'?'selected':''}">Ollama</button>`:''}</div></div>
+function showSettings(){page('settings',`<div class="intro-header"><span class="eyebrow">KI-EINSTELLUNGEN</span><h1>Mit echter KI trainieren.</h1><p>Deine GitHub-Web-App kann über einen Cloudflare Worker mit Gemini sowie optional Groq, Claude und weiteren Anbietern sprechen. Die Modellwahl und optionale Ersatzmodelle werden im Cloudflare-Worker konfiguriert. Ohne Verbindung bleibt der Offline-Modus verfügbar.</p></div>
+ <div class="sheet"><div class="field-group"><span class="fieldset-title">Antwortmodus</span><div class="segment"><button data-action="engine" data-value="offline" class="${state.engine==='offline'?'selected':''}">Offline · regelbasiert</button><button data-action="engine" data-value="cloud" class="${state.engine==='cloud'?'selected':''}">Cloud-KI · Gemini / weitere Anbieter</button>${!HOSTED_PWA?`<button data-action="engine" data-value="ai" class="${state.engine==='ai'?'selected':''}">Ollama</button>`:''}</div></div>
  <div class="softbox"><strong>Cloud-KI einrichten</strong><p>Cloudflare Worker einmalig erstellen, dort <code>ACCESS_CODE</code> und je nach Anbieter <code>GEMINI_API_KEY</code> oder <code>OPENAI_API_KEY</code> als Secrets hinterlegen. Einen API-Schlüssel niemals hier oder in GitHub eingeben. Nur fiktive Übungsdaten verwenden.</p></div>
  <div class="field-group"><label class="fieldset-title" for="cloudUrl">1 / Cloudflare Worker URL</label><input type="url" id="cloudUrl" data-action="cloud-url" value="${esc(state.cloudUrl)}" placeholder="https://einsatzdialog-ki.deinkonto.workers.dev" spellcheck="false" autocomplete="url"/><p class="tiny-hint">Hier kommt die https://...workers.dev Adresse rein, nicht die GitHub-Webadresse.</p></div>
  <div class="field-group"><label class="fieldset-title" for="cloudCode">2 / Persönlicher Zugangscode</label><input type="password" id="cloudCode" data-action="cloud-code" value="${esc(state.cloudCode)}" placeholder="Dein langer ACCESS_CODE aus Cloudflare" autocomplete="off"/><p class="tiny-hint">Der Code bleibt nur in der Sitzungsablage auf diesem Gerät. Bitte nicht mit anderen teilen.</p></div>
